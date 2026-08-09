@@ -10,6 +10,7 @@ import (
 	fastinghttp "puasa-sunnah/internal/domains/fasting/delivery/http"
 	fastingrepository "puasa-sunnah/internal/domains/fasting/repository"
 	fastingusecase "puasa-sunnah/internal/domains/fasting/usecase"
+	swaggerhttp "puasa-sunnah/internal/domains/swagger/delivery/http"
 )
 
 type HealthResponse struct {
@@ -25,6 +26,7 @@ func New(cfg config.Config) *fiber.App {
 	server.Use(recover.New())
 
 	server.Get("/health", health(cfg.AppName))
+	swaggerhttp.Register(server)
 
 	kemenagCalendar := fastingrepository.NewKemenagCalendar()
 	fastingService := fastingusecase.NewFastingUsecase(kemenagCalendar)

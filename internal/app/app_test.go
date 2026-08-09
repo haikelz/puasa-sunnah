@@ -206,4 +206,49 @@ func TestAPI(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("swagger specification", func(t *testing.T) {
+		request, err := http.NewRequest(http.MethodGet, "/swagger/doc.json", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := server.Test(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusOK)
+		}
+		var specification struct {
+			Paths map[string]json.RawMessage `json:"paths"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&specification); err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range []string{"/health", "/api/{language}/fasting/rules", "/api/{language}/fasting/schedules", "/api/{language}/fasting/classify"} {
+			if _, ok := specification.Paths[path]; !ok {
+				t.Errorf("Swagger specification does not contain %s", path)
+			}
+		}
+	})
+
+	t.Run("swagger UI", func(t *testing.T) {
+		request, err := http.NewRequest(http.MethodGet, "/swagger/index.html", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := server.Test(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.StatusCode != http.StatusOK || !strings.Contains(string(body), "Puasa Sunnah API Documentation") {
+			t.Fatalf("Swagger UI status/title invalid: status=%d", response.StatusCode)
+		}
+	})
 }

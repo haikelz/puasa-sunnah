@@ -1,0 +1,520 @@
+{
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Educational API for classifying and scheduling voluntary Islamic fasting days using the published Kementerian Agama RI 2026 Hijri calendar.\nCalendar output is planning information, not a fatwa. Ramadan, Shawwal, and Dhu al-Hijjah dates may be superseded by an official Sidang Isbat decision.",
+        "title": "Puasa Sunnah API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/api/{language}/fasting/classify": {
+            "post": {
+                "description": "Classifies one Gregorian date using a caller-supplied, locally accepted Hijri date. Restrictions take precedence over voluntary recommendations.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Fasting"
+                ],
+                "summary": "Classify a fasting date",
+                "parameters": [
+                    {
+                        "enum": [
+                            "en",
+                            "id"
+                        ],
+                        "type": "string",
+                        "description": "Response language",
+                        "name": "language",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Gregorian and accepted Hijri date",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/fasting.ClassificationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.ClassificationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid JSON or date",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/{language}/fasting/rules": {
+            "get": {
+                "description": "Returns recommended patterns, prohibited days, evidence links, calculations, and jurisprudential caveats.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Fasting"
+                ],
+                "summary": "List supported fasting rules",
+                "parameters": [
+                    {
+                        "enum": [
+                            "en",
+                            "id"
+                        ],
+                        "type": "string",
+                        "description": "Response language",
+                        "name": "language",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.RulesResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/{language}/fasting/schedules": {
+            "get": {
+                "description": "Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Dates use the published Kementerian Agama RI 2026 calendar and Asia/Jakarta timezone.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Fasting"
+                ],
+                "summary": "Get a fasting schedule",
+                "parameters": [
+                    {
+                        "enum": [
+                            "en",
+                            "id"
+                        ],
+                        "type": "string",
+                        "description": "Response language",
+                        "name": "language",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "week",
+                            "month",
+                            "year"
+                        ],
+                        "type": "string",
+                        "description": "Schedule period",
+                        "name": "period",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-08-09",
+                        "description": "Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta",
+                        "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Apply the pilgrim-at-Arafah exception",
+                        "name": "is_pilgrim_at_arafah",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.ScheduleResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid query",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Calendar does not cover the requested range",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Returns the API process health and service name.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Check service health",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/app.HealthResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "app.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "service": {
+                    "type": "string",
+                    "example": "puasa-sunnah-api"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "fasting.CalendarSource": {
+            "type": "object",
+            "properties": {
+                "caveat": {
+                    "type": "string"
+                },
+                "coverage_end": {
+                    "type": "string"
+                },
+                "coverage_start": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "publisher": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "fasting.Classification": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "disclaimer": {
+                    "type": "string"
+                },
+                "hijri": {
+                    "$ref": "#/definitions/fasting.HijriDate"
+                },
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.Occurrence"
+                    }
+                },
+                "restrictions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.Occurrence"
+                    }
+                },
+                "verdict": {
+                    "$ref": "#/definitions/fasting.Verdict"
+                },
+                "weekday": {
+                    "type": "string"
+                }
+            }
+        },
+        "fasting.ClassificationRequest": {
+            "type": "object",
+            "required": [
+                "date",
+                "hijri"
+            ],
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-06-25"
+                },
+                "hijri": {
+                    "$ref": "#/definitions/fasting.HijriDate"
+                },
+                "is_pilgrim_at_arafah": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "fasting.HijriDate": {
+            "type": "object",
+            "required": [
+                "day",
+                "month",
+                "year"
+            ],
+            "properties": {
+                "day": {
+                    "type": "integer",
+                    "maximum": 30,
+                    "minimum": 1,
+                    "example": 10
+                },
+                "month": {
+                    "type": "integer",
+                    "maximum": 12,
+                    "minimum": 1,
+                    "example": 1
+                },
+                "year": {
+                    "type": "integer",
+                    "example": 1448
+                }
+            }
+        },
+        "fasting.Occurrence": {
+            "type": "object",
+            "properties": {
+                "evidence": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "fasting.Rule": {
+            "type": "object",
+            "properties": {
+                "calculation": {
+                    "type": "string"
+                },
+                "caveat": {
+                    "type": "string"
+                },
+                "evidence": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "key": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "fasting.Schedule": {
+            "type": "object",
+            "properties": {
+                "anchor_date": {
+                    "type": "string"
+                },
+                "audience": {
+                    "type": "string"
+                },
+                "calendar_source": {
+                    "$ref": "#/definitions/fasting.CalendarSource"
+                },
+                "dates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.ScheduleDate"
+                    }
+                },
+                "disclaimer": {
+                    "type": "string"
+                },
+                "end_date": {
+                    "type": "string"
+                },
+                "period": {
+                    "$ref": "#/definitions/fasting.SchedulePeriod"
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "week_starts_on": {
+                    "type": "string"
+                }
+            }
+        },
+        "fasting.ScheduleDate": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "hijri": {
+                    "$ref": "#/definitions/fasting.HijriDate"
+                },
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.Occurrence"
+                    }
+                },
+                "weekday": {
+                    "type": "string"
+                }
+            }
+        },
+        "fasting.SchedulePeriod": {
+            "type": "string",
+            "enum": [
+                "week",
+                "month",
+                "year"
+            ],
+            "x-enum-varnames": [
+                "SchedulePeriodWeek",
+                "SchedulePeriodMonth",
+                "SchedulePeriodYear"
+            ]
+        },
+        "fasting.Verdict": {
+            "type": "string",
+            "enum": [
+                "optional",
+                "recommended",
+                "obligatory_period",
+                "prohibited"
+            ],
+            "x-enum-varnames": [
+                "VerdictOptional",
+                "VerdictRecommended",
+                "VerdictObligatoryPeriod",
+                "VerdictProhibited"
+            ]
+        },
+        "http.ClassificationResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/fasting.Classification"
+                }
+            }
+        },
+        "http.ErrorDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 400
+                },
+                "message": {
+                    "type": "string",
+                    "example": "invalid request"
+                }
+            }
+        },
+        "http.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/http.ErrorDetail"
+                }
+            }
+        },
+        "http.RulesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.Rule"
+                    }
+                }
+            }
+        },
+        "http.ScheduleResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/fasting.Schedule"
+                }
+            }
+        }
+    }
+}
