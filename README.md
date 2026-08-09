@@ -1,8 +1,8 @@
 # Puasa Sunnah API
 
-A small Go/Fiber API for explaining and classifying voluntary fasting days in the Islamic calendar. The project uses a modular monolith with delivery, use-case, and repository boundaries while keeping Fiber isolated at the HTTP edge.
+A production-grade Go/Fiber API for explaining, classifying, and scheduling voluntary fasting days in the Islamic calendar. The project uses a modular monolith with delivery, use-case, and repository boundaries while keeping Fiber isolated at the HTTP edge.
 
-> **Religious scope:** this service is a planning and educational aid, not a fatwa. Hijri dates can differ between countries, communities, and recognized authorities. Always use the Hijri date accepted by the relevant local Islamic authority and ask qualified scholars about personal rulings.
+> **Religious scope:** this production service provides calendar-based planning information, not a fatwa. Hijri dates can differ between countries, communities, and recognized authorities. Always use the Hijri date accepted by the relevant local Islamic authority and ask qualified scholars about personal rulings.
 
 ## What is puasa sunnah?
 

@@ -529,7 +529,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{"http", "https"},
 	Title:            "Puasa Sunnah API",
-	Description:      "Educational API for classifying and scheduling voluntary Islamic fasting days using the published Kementerian Agama RI 2026 Hijri calendar.\nCalendar output is planning information, not a fatwa. Ramadan, Shawwal, and Dhu al-Hijjah dates may be superseded by an official Sidang Isbat decision.",
+	Description:      "Production API for classifying and scheduling voluntary Islamic fasting days using the published Kementerian Agama RI 2026 Hijri calendar.\nCalendar output is planning information, not a fatwa. Ramadan, Shawwal, and Dhu al-Hijjah dates may be superseded by an official Sidang Isbat decision.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

@@ -1,6 +1,6 @@
 # Engineering guide for Puasa Sunnah API
 
-This file governs the whole repository. Preserve both technical correctness and religious humility. The service provides calendar-based educational information; it does not issue fatwas or decide a user's personal obligation.
+This file governs the whole repository. Preserve both technical correctness and religious humility. This is a production-grade API that provides calendar-based planning information; it does not issue fatwas or decide a user's personal obligation.
 
 ## Definition of done
 
