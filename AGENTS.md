@@ -1,0 +1,77 @@
+# Engineering guide for Puasa Sunnah API
+
+This file governs the whole repository. Preserve both technical correctness and religious humility. The service provides calendar-based educational information; it does not issue fatwas or decide a user's personal obligation.
+
+## Definition of done
+
+For code changes, run the narrowest relevant tests, then before finishing run:
+
+```bash
+gofmt -w <changed-go-files>
+go test ./...
+go vet ./...
+go build -o bin/api ./cmd/api
+```
+
+For Cloudflare changes also run `npm run cf:check` when Docker and Wrangler dependencies are available. Do not claim deployment was tested unless authenticated Cloudflare deployment actually ran.
+
+Local development uses `make dev`, backed by `.air.toml`. Keep Air build output under ignored `tmp/air/`; do not point it at `bin/` or commit generated binaries. If the API entrypoint moves, update both the Makefile and Air build command.
+
+## Architecture constraints
+
+- This is a modular monolith with module-owned delivery, use-case, and repository boundaries.
+- `cmd/api` owns process lifecycle and graceful shutdown.
+- `internal/app` is the composition root. Wire concrete dependencies explicitly there.
+- Business modules live in `internal/domains/<module>`.
+- A module root owns entities, DTOs, and narrow interfaces. Implementations belong in `usecase/`, `repository/`, and `delivery/http/` as needed.
+- Fiber belongs only in delivery and app wiring. Never pass `*fiber.Ctx` to a use case or repository; pass `context.Context`.
+- Use cases own rules and orchestration. Repositories own persistence/provider details. Do not add a repository for deterministic in-memory logic.
+- Cross-module calls use narrow interfaces and constructor injection, never another module's concrete implementation or a service locator.
+- Load environment configuration once through `internal/config`; domains must not call `os.Getenv`.
+- Keep the API stateless. Cloudflare Containers can sleep/restart, and their filesystem is not durable.
+- Prefer the smallest implementation that preserves these boundaries. Do not create shared `utils`, `helpers`, or `models` catch-all packages.
+
+When persistence becomes necessary, define the repository contract in the consuming module, keep SQL/database types out of the contract, use explicit versioned migrations, and make transaction boundaries match complete business state changes. Do not auto-migrate during API startup.
+
+## HTTP conventions
+
+- Prefix business routes with the required response language (`/api/en` or `/api/id`) and retain `/health` for platform probes. Do not add a version segment.
+- Successful resources use `{ "data": ... }`; errors use `{ "error": { "code": <status>, "message": "..." } }`.
+- Parse and validate transport input in delivery, but keep business/date validation in the use case.
+- Return arrays as `[]`, not `null`.
+- Derive weekdays from strict ISO `YYYY-MM-DD` dates.
+- Keep Fiber-specific error mapping in delivery/app layers.
+- Document every public endpoint with Swag annotations and concrete envelope schemas. After route or model changes, run `make swagger` and commit `internal/domains/swagger/generated/`.
+- Swagger UI is served at `/swagger/index.html`; generated Swagger JSON is served at `/swagger/doc.json`. Never hand-edit generated Swagger files.
+
+## Islamic-domain invariants
+
+Religious accuracy has higher priority than convenience.
+
+1. **Do not silently infer authoritative Hijri dates.** Computed calendars are estimates/planning tools. Month starts can differ by accepted authority and locality. Date classification requires an explicit Hijri date until a caller-selected, clearly disclosed calendar source exists.
+2. **Restrictions precede recommendations.** Ramadan is an obligatory period, not voluntary. Eid al-Fitr (1 Shawwal), Eid al-Adha (10 Dhu al-Hijjah), and Tashriq (11–13 Dhu al-Hijjah) must suppress ordinary voluntary recommendations. Preserve documented exceptional cases as caveats rather than broad permissions.
+3. **Separate fixed-date rules from personal patterns.** Monday/Thursday, Ayyam al-Bid, Ashura, Arafah, and fixed prohibited days can be classified from one request. Six completed Shawwal days, three selected monthly days, Dawud alternation, Friday paired with an adjacent day, and personal make-up obligations require history or context.
+4. **Arafah requires pilgrim context.** Do not recommend the Arafah fast to a pilgrim standing at Arafah as though the same rule applied unconditionally.
+5. **Do not turn disagreement into certainty.** Consecutive Shawwal days, combining intentions, Friday/Saturday details, local moon-sighting choices, and personal exemptions can involve jurisprudential differences. Label caveats and direct users to qualified scholars.
+6. **Keep evidence traceable.** Material rules need a primary Qur'an/hadith reference and, where interpretation is not direct, recognized scholarly review. Do not use SEO calendar sites as the authority for production rules.
+7. **Keep the disclaimer.** Outputs are planning information, not a fatwa. Do not promise reward, acceptance, or individual legal status.
+
+Core rules and references are documented in `README.md` and returned by `GET /api/{language}/fasting/rules`. Any rule change requires boundary/precedence tests in both supported languages. Before production release, seek review from qualified Islamic scholars, especially for Indonesian users and Kementerian Agama calendar policy.
+
+## Kemenag calendar data
+
+- Schedule generation uses the official `Kalender Hijriah Indonesia Tahun 2026` PDF from Ditjen Bimas Islam. There is no documented public Kemenag calendar API; do not claim one exists.
+- `internal/domains/fasting/repository/kemenag_calendar.go` is intentionally year-bounded. Never extrapolate its month lengths, silently use Umm al-Qura, or label a generic MABIMS calculation as official Kemenag data.
+- Every schedule response must expose source URL, publisher, coverage, planning status, and the possibility that Sidang Isbat supersedes Ramadan, Shawwal, or Dhu al-Hijjah planning dates.
+- Weeks are Monday–Sunday. Months and years use Gregorian boundaries in `Asia/Jakarta`.
+- Add a new year only from a Kemenag publication. Transcribe every month boundary, add transition tests, verify the full Gregorian year, and update source metadata/coverage.
+- Unsupported ranges must return an explicit error. Do not degrade to a different calendar authority.
+
+## Cloudflare constraints
+
+- Native Fiber runs in Cloudflare Containers, not directly in a standard Worker isolate.
+- Keep `worker/index.js` a thin gateway and `defaultPort` synchronized with application/Docker port 8080.
+- Cloudflare requires `linux/amd64`; preserve the Docker cross-build settings.
+- `max_instances` and the `getRandom` pool size must remain compatible.
+- Do not put secrets in `wrangler.jsonc`; use Wrangler secrets.
+- Ask before executing a real deployment because it pushes shared infrastructure. Dry-run validation is safe.
