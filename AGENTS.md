@@ -13,9 +13,9 @@ go vet ./...
 go build -o bin/api ./cmd/api
 ```
 
-For Cloudflare changes also run `npm run cf:check` when Docker and Wrangler dependencies are available. Do not claim deployment was tested unless authenticated Cloudflare deployment actually ran.
+For Vercel configuration changes also run `npx vercel build` when the Vercel CLI is available. Do not claim production deployment was tested unless an authenticated `npx vercel --prod` actually completed and the deployed health endpoint was checked.
 
-Local development uses `make dev`, backed by `.air.toml`. Keep Air build output under ignored `tmp/air/`; do not point it at `bin/` or commit generated binaries. If the API entrypoint moves, update both the Makefile and Air build command.
+Local development uses `air -c .air.toml`. Keep Air build output under ignored `tmp/air/`; do not point it at `bin/` or commit generated binaries. If the API entrypoint moves, update both `.air.toml` and `vercel.json`.
 
 ## Architecture constraints
 
@@ -28,7 +28,7 @@ Local development uses `make dev`, backed by `.air.toml`. Keep Air build output 
 - Use cases own rules and orchestration. Repositories own persistence/provider details. Do not add a repository for deterministic in-memory logic.
 - Cross-module calls use narrow interfaces and constructor injection, never another module's concrete implementation or a service locator.
 - Load environment configuration once through `internal/config`; domains must not call `os.Getenv`.
-- Keep the API stateless. Cloudflare Containers can sleep/restart, and their filesystem is not durable.
+- Keep the API stateless. Vercel instances can be replaced between requests, and their bundled filesystem is read-only apart from temporary scratch space.
 - Prefer the smallest implementation that preserves these boundaries. Do not create shared `utils`, `helpers`, or `models` catch-all packages.
 
 When persistence becomes necessary, define the repository contract in the consuming module, keep SQL/database types out of the contract, use explicit versioned migrations, and make transaction boundaries match complete business state changes. Do not auto-migrate during API startup.
@@ -41,7 +41,7 @@ When persistence becomes necessary, define the repository contract in the consum
 - Return arrays as `[]`, not `null`.
 - Derive weekdays from strict ISO `YYYY-MM-DD` dates.
 - Keep Fiber-specific error mapping in delivery/app layers.
-- Document every public endpoint with Swag annotations and concrete envelope schemas. After route or model changes, run `make swagger` and commit `internal/domains/swagger/generated/`.
+- Document every public endpoint with Swag annotations and concrete envelope schemas. After route or model changes, run `swag init -g main.go -d cmd/api,internal/app,internal/domains/fasting -o internal/domains/swagger/generated` and commit `internal/domains/swagger/generated/`.
 - Swagger UI is served at `/swagger/index.html`; generated Swagger JSON is served at `/swagger/doc.json`. Never hand-edit generated Swagger files.
 
 ## Islamic-domain invariants
@@ -67,11 +67,11 @@ Core rules and references are documented in `README.md` and returned by `GET /ap
 - Add a new year only from a Kemenag publication. Transcribe every month boundary, add transition tests, verify the full Gregorian year, and update source metadata/coverage.
 - Unsupported ranges must return an explicit error. Do not degrade to a different calendar authority.
 
-## Cloudflare constraints
+## Vercel deployment constraints
 
-- Native Fiber runs in Cloudflare Containers, not directly in a standard Worker isolate.
-- Keep `worker/index.js` a thin gateway and `defaultPort` synchronized with application/Docker port 8080.
-- Cloudflare requires `linux/amd64`; preserve the Docker cross-build settings.
-- `max_instances` and the `getRandom` pool size must remain compatible.
-- Do not put secrets in `wrangler.jsonc`; use Wrangler secrets.
-- Ask before executing a real deployment because it pushes shared infrastructure. Dry-run validation is safe.
+- Production uses Vercel's Go Framework Preset, not a Docker container. Keep `go.mod` at the repository root and the executable entrypoint at `cmd/api/main.go` unless `vercel.json` is updated in the same change.
+- The process must listen on Vercel's runtime-provided `PORT`. Never replace it with a fixed production port; the local default may remain 8080.
+- Keep `vercel.json` configured with `"framework": "go"`. Its build must emit a runnable binary from `./cmd/api`.
+- Do not commit `.vercel/` or credentials. Configure production environment variables through Vercel project settings or the Vercel CLI.
+- Treat the runtime filesystem as ephemeral. Persist future durable data in an external service, not local files.
+- Ask before running `npx vercel --prod` because it changes shared production infrastructure. `npx vercel build` is safe local validation.

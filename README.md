@@ -162,7 +162,9 @@ After changing routes, annotations, or API models, regenerate and commit all gen
 
 ```bash
 go install github.com/swaggo/swag/cmd/swag@v1.16.4
-make swagger
+swag init -g main.go \
+  -d cmd/api,internal/app,internal/domains/fasting \
+  -o internal/domains/swagger/generated
 ```
 
 Generated files are stored in `internal/domains/swagger/generated/` as Go, JSON, and YAML. Do not edit them manually.
@@ -202,10 +204,10 @@ go install github.com/air-verse/air@v1.65.3
 ```bash
 cp .env.example .env       # optional; .env is not auto-loaded
 export $(grep -v '^#' .env | xargs)  # if using the file
-make dev                   # watches Go files, rebuilds, and restarts
+air -c .air.toml           # watches Go files, rebuilds, and restarts
 ```
 
-Air uses `.air.toml`, writes its temporary binary under ignored `tmp/air/`, excludes test files and generated/dependency directories, sends an interrupt for graceful restart, and removes temporary files when it exits. Use `make run` when live reload is not needed.
+Air uses `.air.toml`, writes its temporary binary under ignored `tmp/air/`, excludes test files and generated/dependency directories, sends an interrupt for graceful restart, and removes temporary files when it exits. Use `go run ./cmd/api` when live reload is not needed.
 
 Then call:
 
@@ -224,37 +226,47 @@ curl -X POST http://localhost:8080/api/en/fasting/classify \
 Verification:
 
 ```bash
-make check
-# equivalent: go test ./... && go vet ./... && go build -o bin/api ./cmd/api
+go test ./...
+go vet ./...
+go build -o bin/api ./cmd/api
 ```
 
-## Cloudflare deployment
+## Vercel deployment
 
-Fiber is a native Go HTTP server and cannot run as an ordinary JavaScript Worker. This repository uses [Cloudflare Containers](https://developers.cloudflare.com/containers/) behind a thin Worker gateway, following Cloudflare's [Go container guide](https://developers.cloudflare.com/containers/get-started/):
+The API is deployed with [Vercel's Go runtime](https://vercel.com/docs/functions/runtimes/go). Vercel detects the root `go.mod` and `cmd/api/main.go`, builds the Fiber server, provides its runtime `PORT`, and serves the process as a Vercel Function. No Docker container or long-lived local filesystem is required.
 
 ```text
-Internet → Cloudflare Worker → one of 3 stateless Containers → Fiber :8080
+Internet → Vercel CDN → Go Function → Fiber on $PORT
 ```
 
-The Docker image is explicitly built for `linux/amd64`, the architecture required by Cloudflare Containers. Containers sleep after two idle minutes and restart on demand; therefore the API process must remain stateless. Any future durable data must live in an external durable service, not the container filesystem.
+The deployment contract lives in `vercel.json`: the framework is `go`, and the build command emits the `server` binary from `./cmd/api`. The service remains stateless because Vercel may replace instances between requests. Any future durable data must live in an external durable service.
 
-Requirements: Node.js, npm, Docker, a Cloudflare account with Containers access, and `wrangler login`.
+Requirements: a Vercel account and Node.js for invoking the Vercel CLI. The Hobby plan can host personal, non-commercial projects within its included Function limits.
 
 ```bash
-npm install
-npm run cf:check       # validate/build a dry run
-npm run cf:deploy      # builds image, pushes it, and deploys Worker
-npx wrangler containers list
+npx vercel login
+npx vercel build       # local production-build validation
+npx vercel             # preview deployment
+npx vercel --prod      # production deployment
 ```
 
-The first deployment can take several minutes before container requests succeed. Do not commit `.wrangler/`, `node_modules/`, or secrets. Cloudflare configuration is in `wrangler.jsonc`; gateway code is in `worker/index.js`.
+After deployment, use the URL printed by Vercel to verify the public service:
+
+```bash
+DEPLOYMENT_URL=https://your-project.vercel.app
+curl "$DEPLOYMENT_URL/health"
+curl "$DEPLOYMENT_URL/api/en/fasting/rules"
+curl "$DEPLOYMENT_URL/api/id/fasting/schedules?period=year"
+```
+
+Swagger is available at `$DEPLOYMENT_URL/swagger/index.html`. Do not commit `.vercel/` or credentials. Configure environment variables in the Vercel project settings; `PORT` is supplied automatically.
 
 ## Configuration
 
 | Variable   |            Default | Purpose                                                    |
 | ---------- | -----------------: | ---------------------------------------------------------- |
 | `APP_NAME` | `puasa-sunnah-api` | Fiber service name and health metadata                     |
-| `PORT`     |             `8080` | HTTP port; must match the Worker container's `defaultPort` |
+| `PORT`     |             `8080` | HTTP port; Vercel supplies this automatically in production |
 
 Configuration is loaded and validated once at startup. Domain packages must not read environment variables directly.
 
