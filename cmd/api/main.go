@@ -14,7 +14,7 @@ import (
 
 // @title Puasa Sunnah API
 // @version 1.0
-// @description Production API for classifying and scheduling voluntary Islamic fasting days using the published Kementerian Agama RI 2026 Hijri calendar.
+// @description Production API for classifying and scheduling voluntary Islamic fasting days using the published Kementerian Agama RI Hijri calendar.
 // @description Calendar output is planning information, not a fatwa. Ramadan, Shawwal, and Dhu al-Hijjah dates may be superseded by an official Sidang Isbat decision.
 // @BasePath /
 // @schemes http https
