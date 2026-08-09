@@ -1,0 +1,7 @@
+.env
+bin/
+tmp/
+node_modules/
+.wrangler/
+.DS_Store
+tasks/*

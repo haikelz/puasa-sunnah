@@ -1,0 +1,139 @@
+package http
+
+import (
+	"errors"
+	"strconv"
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+
+	"puasa-sunnah/internal/domains/fasting"
+	fastingusecase "puasa-sunnah/internal/domains/fasting/usecase"
+)
+
+type Handler struct {
+	usecase fasting.Usecase
+}
+
+func NewHandler(usecase fasting.Usecase) *Handler {
+	return &Handler{usecase: usecase}
+}
+
+func (h *Handler) Register(router fiber.Router) {
+	router.Use(requireSupportedLanguage)
+	router.Get("/rules", h.rules)
+	router.Get("/schedules", h.schedule)
+	router.Post("/classify", h.classify)
+}
+
+// rules godoc
+// @Summary List supported fasting rules
+// @Description Returns recommended patterns, prohibited days, evidence links, calculations, and jurisprudential caveats.
+// @Tags Fasting
+// @Produce json
+// @Param language path string true "Response language" Enums(en, id)
+// @Success 200 {object} RulesResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/{language}/fasting/rules [get]
+func (h *Handler) rules(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{"data": h.usecase.Rules(c.UserContext(), requestLanguage(c))})
+}
+
+// schedule godoc
+// @Summary Get a fasting schedule
+// @Description Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Dates use the published Kementerian Agama RI 2026 calendar and Asia/Jakarta timezone.
+// @Tags Fasting
+// @Produce json
+// @Param language path string true "Response language" Enums(en, id)
+// @Param period query string true "Schedule period" Enums(week, month, year)
+// @Param date query string false "Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta" example(2026-08-09)
+// @Param is_pilgrim_at_arafah query boolean false "Apply the pilgrim-at-Arafah exception" default(false)
+// @Success 200 {object} ScheduleResponse
+// @Failure 400 {object} ErrorResponse "Invalid query"
+// @Failure 422 {object} ErrorResponse "Calendar does not cover the requested range"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/{language}/fasting/schedules [get]
+func (h *Handler) schedule(c *fiber.Ctx) error {
+	language := requestLanguage(c)
+	isPilgrim := false
+	if value := c.Query("is_pilgrim_at_arafah"); value != "" {
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			message := "is_pilgrim_at_arafah must be true or false"
+			if language == fasting.LanguageIndonesian {
+				message = "is_pilgrim_at_arafah harus bernilai true atau false"
+			}
+			return fiber.NewError(fiber.StatusBadRequest, message)
+		}
+		isPilgrim = parsed
+	}
+
+	result, err := h.usecase.Schedule(c.UserContext(), fasting.ScheduleRequest{
+		Period:            fasting.SchedulePeriod(c.Query("period")),
+		Date:              c.Query("date"),
+		IsPilgrimAtArafah: isPilgrim,
+		Language:          language,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, fastingusecase.ErrInvalidRequest):
+			return fiber.NewError(fiber.StatusBadRequest, clientErrorMessage(err, fastingusecase.ErrInvalidRequest))
+		case errors.Is(err, fastingusecase.ErrCalendarUnavailable):
+			return fiber.NewError(fiber.StatusUnprocessableEntity, clientErrorMessage(err, fastingusecase.ErrCalendarUnavailable))
+		default:
+			return err
+		}
+	}
+
+	return c.JSON(fiber.Map{"data": result})
+}
+
+// classify godoc
+// @Summary Classify a fasting date
+// @Description Classifies one Gregorian date using a caller-supplied, locally accepted Hijri date. Restrictions take precedence over voluntary recommendations.
+// @Tags Fasting
+// @Accept json
+// @Produce json
+// @Param language path string true "Response language" Enums(en, id)
+// @Param request body fasting.ClassificationRequest true "Gregorian and accepted Hijri date"
+// @Success 200 {object} ClassificationResponse
+// @Failure 400 {object} ErrorResponse "Invalid JSON or date"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/{language}/fasting/classify [post]
+func (h *Handler) classify(c *fiber.Ctx) error {
+	language := requestLanguage(c)
+	var request fasting.ClassificationRequest
+	if err := c.BodyParser(&request); err != nil {
+		message := "body must be valid JSON"
+		if language == fasting.LanguageIndonesian {
+			message = "body harus berupa JSON yang valid"
+		}
+		return fiber.NewError(fiber.StatusBadRequest, message)
+	}
+	request.Language = language
+
+	result, err := h.usecase.Classify(c.UserContext(), request)
+	if err != nil {
+		if errors.Is(err, fastingusecase.ErrInvalidRequest) {
+			return fiber.NewError(fiber.StatusBadRequest, clientErrorMessage(err, fastingusecase.ErrInvalidRequest))
+		}
+		return err
+	}
+
+	return c.JSON(fiber.Map{"data": result})
+}
+
+func requireSupportedLanguage(c *fiber.Ctx) error {
+	if !requestLanguage(c).IsSupported() {
+		return fiber.ErrNotFound
+	}
+	return c.Next()
+}
+
+func requestLanguage(c *fiber.Ctx) fasting.Language {
+	return fasting.Language(c.Params("language"))
+}
+
+func clientErrorMessage(err, sentinel error) string {
+	return strings.TrimPrefix(err.Error(), sentinel.Error()+": ")
+}
