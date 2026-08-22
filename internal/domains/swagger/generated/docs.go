@@ -147,7 +147,6 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "example": "2026-08-09",
                         "description": "Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta",
                         "name": "date",
                         "in": "query"

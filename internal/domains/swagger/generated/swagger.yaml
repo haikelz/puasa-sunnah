@@ -319,7 +319,6 @@ paths:
         required: true
         type: string
       - description: Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta
-        example: "2026-08-09"
         in: query
         name: date
         type: string
