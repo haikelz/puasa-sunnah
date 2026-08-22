@@ -44,9 +44,12 @@ For manual classification, this API uses a transparent two-calendar input:
 4. If no restriction applies, fixed-date and weekday recommendations are accumulated. One date can match several recommendations.
 5. Stateful patterns (six completed Shawwal days, alternate-day fasting, three chosen monthly days) remain the caller's responsibility.
 
-Schedule generation uses the published [Kalender Hijriah Indonesia Tahun 2026](https://aceh.kemenag.go.id/storage/berita_informasi/01K7GE96M0ZVRJ62Z520RMYG1B.pdf) from Ditjen Bimas Islam, Kementerian Agama RI. Its verified month boundaries are bundled behind a calendar repository; no third-party request or hidden Umm al-Qura fallback occurs at runtime. Every schedule response identifies the source, coverage, status, and Sidang Isbat caveat.
+Schedule generation supports two explicitly selected calendar sources:
 
-Kemenag does not currently expose a documented public calendar API. Consequently, this implementation supports the 2026 publication only (with its visible boundary-week dates from 28 December 2025 through 2 January 2027). Unsupported ranges return HTTP `422` rather than fabricated Kemenag dates. Add later years only after Kemenag publishes the corresponding official calendar and the month boundaries have tests.
+- `id` (default) uses the published [Kalender Hijriah Indonesia Tahun 2026](https://aceh.kemenag.go.id/storage/berita_informasi/01K7GE96M0ZVRJ62Z520RMYG1B.pdf) from Ditjen Bimas Islam, Kementerian Agama RI. Its verified month boundaries are transcribed into the service; this is not an automatically extrapolated calculation. Kemenag does not currently expose a documented public calendar API, so coverage is limited to the publication's visible dates from 28 December 2025 through 2 January 2027. Unsupported ranges return HTTP `422`.
+- `umm-al-qura` uses the Saudi Umm al-Qura civil calendar conversion data compiled by [R.H. van Gent](https://webspace.science.uu.nl/~gent0113/islam/ummalqura.htm), covering 14 March 1937 through 16 November 2077. It is a calculated planning calendar, not an Indonesian religious determination, and can differ from dates accepted by local authorities.
+
+Every schedule response identifies the selected calendar, source, publisher, coverage, status, and relevant authority caveat. The API never silently falls back from one calendar to the other. Add later `id` years only after Kemenag publishes the corresponding official calendar and the transcribed month boundaries have tests.
 
 ## API
 
@@ -73,11 +76,13 @@ Returns calculations, evidence links, and caveats, including rules that cannot b
 GET /api/en/fasting/schedules?period=week&date=2026-08-09
 GET /api/en/fasting/schedules?period=month&date=2026-08-09
 GET /api/en/fasting/schedules?period=year&date=2026-08-09
-GET /api/id/fasting/schedules?period=year&date=2026-08-09
+GET /api/id/fasting/schedules?period=year&date=2026-08-09&calendar=id
+GET /api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura
 ```
 
 - `period` is required and must be `week`, `month`, or `year`.
 - `date` is an optional anchor in `YYYY-MM-DD`; it defaults to today in `Asia/Jakarta`.
+- `calendar` is optional and must be `id` or `umm-al-qura`; it defaults to `id`.
 - Weeks run Monday through Sunday. Month and year use Gregorian boundaries.
 - Add `is_pilgrim_at_arafah=true` for the Arafah-specific pilgrim context.
 - Responses contain only recommended opportunities; obligatory Ramadan and prohibited Eid/Tashriq dates are suppressed.
@@ -99,6 +104,7 @@ The response includes 11 distinct dates: the month's Mondays/Thursdays and 13–
     "start_date": "2026-08-01",
     "end_date": "2026-08-31",
     "timezone": "Asia/Jakarta",
+    "calendar": "id",
     "calendar_source": {
       "id": "kemenag-ri-2026",
       "status": "published_planning_calendar",
@@ -156,7 +162,7 @@ Run the API, then open:
 - Interactive Swagger UI: `http://localhost:8080/swagger/index.html`
 - Swagger JSON: `http://localhost:8080/swagger/doc.json`
 
-The UI documents health, rules, classification, and week/month/year schedule endpoints, including request bodies, query enums, response schemas, errors, and the Kemenag calendar caveat. “Try it out” is enabled.
+The UI documents health, rules, classification, and week/month/year schedule endpoints, including request bodies, query enums, response schemas, errors, and both calendar-source caveats. “Try it out” is enabled.
 
 After changing routes, annotations, or API models, regenerate and commit all generated artifacts:
 
@@ -178,7 +184,8 @@ cmd/api (process lifecycle)
               └── fasting.Usecase interface
                     └── fasting/usecase (rules and schedule orchestration)
                           └── CalendarRepository
-                                └── Kemenag 2026 calendar adapter
+                                ├── Kemenag Indonesia 2026 adapter
+                                └── Umm al-Qura adapter
 ```
 
 Architecture conventions:
@@ -191,7 +198,7 @@ Architecture conventions:
 - `internal/app` owns composition and `cmd/api` owns startup/shutdown;
 - concrete persistence is added behind repository interfaces only when the domain needs it.
 
-There is no database because the rules and published 2026 calendar are deterministic. The Kemenag adapter is a real repository boundary: a later official calendar API or another explicitly selected authority can replace it without changing fasting rules.
+There is no database because the rules and bundled calendar data are deterministic. Calendar adapters form a repository boundary, allowing callers to explicitly choose an authority without changing fasting rules.
 
 ## Local development
 
@@ -218,6 +225,7 @@ curl http://localhost:8080/api/id/fasting/rules
 curl 'http://localhost:8080/api/en/fasting/schedules?period=week&date=2026-08-09'
 curl 'http://localhost:8080/api/id/fasting/schedules?period=month&date=2026-08-09'
 curl 'http://localhost:8080/api/en/fasting/schedules?period=year&date=2026-08-09'
+curl 'http://localhost:8080/api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura'
 curl -X POST http://localhost:8080/api/en/fasting/classify \
   -H 'Content-Type: application/json' \
   -d '{"date":"2026-06-25","hijri":{"year":1448,"month":1,"day":10}}'
@@ -256,7 +264,7 @@ After deployment, use the URL printed by Vercel to verify the public service:
 DEPLOYMENT_URL=https://your-project.vercel.app
 curl "$DEPLOYMENT_URL/health"
 curl "$DEPLOYMENT_URL/api/en/fasting/rules"
-curl "$DEPLOYMENT_URL/api/id/fasting/schedules?period=year"
+curl "$DEPLOYMENT_URL/api/id/fasting/schedules?period=year&calendar=id"
 ```
 
 Swagger is available at `$DEPLOYMENT_URL/swagger/index.html`. Do not commit `.vercel/` or credentials. Configure environment variables in the Vercel project settings; `PORT` is supplied automatically.
@@ -272,7 +280,7 @@ Configuration is loaded and validated once at startup. Domain packages must not 
 
 ## Sources and maintenance rule
 
-The API's evidence URLs are returned by `GET /api/{language}/fasting/rules`. Primary hadith links above are used for traceability. Schedule dates come from Kemenag's official 2026 PDF and retain a planning/Isbat caveat. English and Indonesian labels summarize rules and are not substitutes for the Arabic texts or scholarly explanation.
+The API's evidence URLs are returned by `GET /api/{language}/fasting/rules`. Primary hadith links above are used for traceability. Schedule dates come from either Kemenag's official 2026 PDF or the explicitly requested Umm al-Qura dataset; both retain their source-specific planning caveats. English and Indonesian labels summarize rules and are not substitutes for the Arabic texts or scholarly explanation.
 
 When changing a religious rule:
 
