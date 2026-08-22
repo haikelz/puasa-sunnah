@@ -29,7 +29,8 @@ func New(cfg config.Config) *fiber.App {
 	swaggerhttp.Register(server)
 
 	kemenagCalendar := fastingrepository.NewKemenagCalendar()
-	fastingService := fastingusecase.NewFastingUsecase(kemenagCalendar)
+	ummAlQuraCalendar := fastingrepository.NewUmmAlQuraCalendar()
+	fastingService := fastingusecase.NewFastingUsecase(kemenagCalendar, ummAlQuraCalendar)
 	fastingHandler := fastinghttp.NewHandler(fastingService)
 	fastingHandler.Register(server.Group("/api/:language/fasting"))
 

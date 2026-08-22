@@ -67,15 +67,24 @@ const (
 	SchedulePeriodYear  SchedulePeriod = "year"
 )
 
+type Calendar string
+
+const (
+	CalendarIndonesia Calendar = "id"
+	CalendarUmmAlQura Calendar = "umm-al-qura"
+)
+
 type ScheduleRequest struct {
 	Period            SchedulePeriod
 	Date              string
 	IsPilgrimAtArafah bool
 	Language          Language
+	Calendar          Calendar
 }
 
 type Schedule struct {
 	Period         SchedulePeriod `json:"period"`
+	Calendar       Calendar       `json:"calendar"`
 	AnchorDate     string         `json:"anchor_date"`
 	StartDate      string         `json:"start_date"`
 	EndDate        string         `json:"end_date"`

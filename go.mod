@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/gofiber/swagger v1.1.1
+	github.com/hablullah/go-hijri v1.0.2
 	github.com/swaggo/swag v1.16.4
 )
 
@@ -18,6 +19,7 @@ require (
 	github.com/go-openapi/spec v0.20.4 // indirect
 	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/hablullah/go-juliandays v1.0.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect

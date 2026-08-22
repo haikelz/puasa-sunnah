@@ -41,12 +41,13 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 
 // schedule godoc
 // @Summary Get a fasting schedule
-// @Description Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Dates use the published Kementerian Agama RI 2026 calendar and Asia/Jakarta timezone.
+// @Description Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone.
 // @Tags Fasting
 // @Produce json
 // @Param language path string true "Response language" Enums(en, id)
 // @Param period query string true "Schedule period" Enums(week, month, year)
 // @Param date query string false "Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta" example(2026-08-09)
+// @Param calendar query string false "Hijri calendar source; defaults to id" Enums(id, umm-al-qura) default(id)
 // @Param is_pilgrim_at_arafah query boolean false "Apply the pilgrim-at-Arafah exception" default(false)
 // @Success 200 {object} ScheduleResponse
 // @Failure 400 {object} ErrorResponse "Invalid query"
@@ -73,6 +74,7 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 		Date:              c.Query("date"),
 		IsPilgrimAtArafah: isPilgrim,
 		Language:          language,
+		Calendar:          fasting.Calendar(c.Query("calendar")),
 	})
 	if err != nil {
 		switch {

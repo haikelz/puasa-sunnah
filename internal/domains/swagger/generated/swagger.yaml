@@ -9,6 +9,14 @@ definitions:
         example: ok
         type: string
     type: object
+  fasting.Calendar:
+    enum:
+    - id
+    - umm-al-qura
+    type: string
+    x-enum-varnames:
+    - CalendarIndonesia
+    - CalendarUmmAlQura
   fasting.CalendarSource:
     properties:
       caveat:
@@ -119,6 +127,8 @@ definitions:
         type: string
       audience:
         type: string
+      calendar:
+        $ref: '#/definitions/fasting.Calendar'
       calendar_source:
         $ref: '#/definitions/fasting.CalendarSource'
       dates:
@@ -213,8 +223,8 @@ definitions:
 info:
   contact: {}
   description: |-
-    Production API for classifying and scheduling voluntary Islamic fasting days using the published Kementerian Agama RI 2026 Hijri calendar.
-    Calendar output is planning information, not a fatwa. Ramadan, Shawwal, and Dhu al-Hijjah dates may be superseded by an official Sidang Isbat decision.
+    Production API for classifying and scheduling voluntary Islamic fasting days using an explicitly selected Indonesian or Umm al-Qura Hijri calendar.
+    Calendar output is planning information, not a fatwa. Dates can differ between accepted authorities and localities.
   title: Puasa Sunnah API
   version: "1.0"
 paths:
@@ -287,8 +297,9 @@ paths:
   /api/{language}/fasting/schedules:
     get:
       description: Returns recommended voluntary fasting opportunities for the Gregorian
-        week, month, or year containing the anchor date. Dates use the published Kementerian
-        Agama RI 2026 calendar and Asia/Jakarta timezone.
+        week, month, or year containing the anchor date. Select the published Indonesian
+        Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta
+        timezone.
       parameters:
       - description: Response language
         enum:
@@ -311,6 +322,14 @@ paths:
         example: "2026-08-09"
         in: query
         name: date
+        type: string
+      - default: id
+        description: Hijri calendar source; defaults to id
+        enum:
+        - id
+        - umm-al-qura
+        in: query
+        name: calendar
         type: string
       - default: false
         description: Apply the pilgrim-at-Arafah exception

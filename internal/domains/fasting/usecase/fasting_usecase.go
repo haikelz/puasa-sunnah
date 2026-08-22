@@ -13,7 +13,8 @@ var ErrInvalidRequest = errors.New("invalid request")
 var ErrCalendarUnavailable = errors.New("calendar does not cover requested range")
 
 type FastingUsecase struct {
-	calendar fasting.CalendarRepository
+	indonesiaCalendar fasting.CalendarRepository
+	ummAlQuraCalendar fasting.CalendarRepository
 }
 
 type parsedRequest struct {
@@ -22,8 +23,11 @@ type parsedRequest struct {
 	isPilgrimAtArafah bool
 }
 
-func NewFastingUsecase(calendar fasting.CalendarRepository) *FastingUsecase {
-	return &FastingUsecase{calendar: calendar}
+func NewFastingUsecase(indonesiaCalendar, ummAlQuraCalendar fasting.CalendarRepository) *FastingUsecase {
+	return &FastingUsecase{
+		indonesiaCalendar: indonesiaCalendar,
+		ummAlQuraCalendar: ummAlQuraCalendar,
+	}
 }
 
 func (u *FastingUsecase) Classify(_ context.Context, request fasting.ClassificationRequest) (fasting.Classification, error) {

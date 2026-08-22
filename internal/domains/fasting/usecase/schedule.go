@@ -12,7 +12,11 @@ import (
 var jakarta = time.FixedZone("Asia/Jakarta", 7*60*60)
 
 func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleRequest) (fasting.Schedule, error) {
-	if u.calendar == nil {
+	calendarID, calendar, err := u.scheduleCalendar(request.Calendar, request.Language)
+	if err != nil {
+		return fasting.Schedule{}, err
+	}
+	if calendar == nil {
 		return fasting.Schedule{}, fmt.Errorf("%w: %s", ErrCalendarUnavailable, text(request.Language, "no calendar source configured", "sumber kalender belum dikonfigurasi"))
 	}
 
@@ -25,10 +29,11 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 		return fasting.Schedule{}, err
 	}
 
-	calendarSource := u.calendar.Source()
-	calendarSource.Caveat = calendarCaveat(request.Language)
+	calendarSource := calendar.Source()
+	calendarSource.Caveat = calendarCaveat(request.Language, calendarID)
 	result := fasting.Schedule{
 		Period:         request.Period,
+		Calendar:       calendarID,
 		AnchorDate:     anchor.Format(time.DateOnly),
 		StartDate:      start.Format(time.DateOnly),
 		EndDate:        end.Format(time.DateOnly),
@@ -49,10 +54,10 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 		if err := ctx.Err(); err != nil {
 			return fasting.Schedule{}, err
 		}
-		hijri, err := u.calendar.HijriDate(ctx, current)
+		hijri, err := calendar.HijriDate(ctx, current)
 		if err != nil {
 			if errors.Is(err, fasting.ErrDateOutsideCalendar) {
-				source := u.calendar.Source()
+				source := calendar.Source()
 				return fasting.Schedule{}, fmt.Errorf("%w: %s", ErrCalendarUnavailable, text(request.Language,
 					fmt.Sprintf("calendar covers %s through %s", source.CoverageStart, source.CoverageEnd),
 					fmt.Sprintf("kalender hanya mencakup %s sampai %s", source.CoverageStart, source.CoverageEnd),
@@ -83,6 +88,24 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 
 	result.Total = len(result.Dates)
 	return result, nil
+}
+
+func (u *FastingUsecase) scheduleCalendar(calendarID fasting.Calendar, language fasting.Language) (fasting.Calendar, fasting.CalendarRepository, error) {
+	if calendarID == "" {
+		calendarID = fasting.CalendarIndonesia
+	}
+
+	switch calendarID {
+	case fasting.CalendarIndonesia:
+		return calendarID, u.indonesiaCalendar, nil
+	case fasting.CalendarUmmAlQura:
+		return calendarID, u.ummAlQuraCalendar, nil
+	default:
+		return "", nil, fmt.Errorf("%w: %s", ErrInvalidRequest, text(language,
+			"calendar must be id or umm-al-qura",
+			"calendar harus bernilai id atau umm-al-qura",
+		))
+	}
 }
 
 func scheduleAnchor(value string, language fasting.Language) (time.Time, error) {

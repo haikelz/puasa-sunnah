@@ -12,7 +12,7 @@ import (
 func TestScheduleWeek(t *testing.T) {
 	t.Parallel()
 
-	got, err := NewFastingUsecase(fastingrepository.NewKemenagCalendar()).Schedule(context.Background(), fasting.ScheduleRequest{
+	got, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodWeek,
 		Date:   "2026-08-09",
 	})
@@ -25,13 +25,16 @@ func TestScheduleWeek(t *testing.T) {
 	if got.WeekStartsOn != "Monday" {
 		t.Errorf("WeekStartsOn = %q, want Monday", got.WeekStartsOn)
 	}
+	if got.Calendar != fasting.CalendarIndonesia {
+		t.Errorf("Calendar = %q, want id", got.Calendar)
+	}
 	assertScheduleDates(t, got.Dates, []string{"2026-08-03", "2026-08-06"})
 }
 
 func TestScheduleMonthIncludesWhiteDaysAndOverlaps(t *testing.T) {
 	t.Parallel()
 
-	got, err := NewFastingUsecase(fastingrepository.NewKemenagCalendar()).Schedule(context.Background(), fasting.ScheduleRequest{
+	got, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodMonth,
 		Date:   "2026-08-09",
 	})
@@ -53,7 +56,7 @@ func TestScheduleMonthIncludesWhiteDaysAndOverlaps(t *testing.T) {
 func TestScheduleYearSuppressesRestrictedDates(t *testing.T) {
 	t.Parallel()
 
-	got, err := NewFastingUsecase(fastingrepository.NewKemenagCalendar()).Schedule(context.Background(), fasting.ScheduleRequest{
+	got, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodYear,
 		Date:   "2026-08-09",
 	})
@@ -73,13 +76,52 @@ func TestScheduleYearSuppressesRestrictedDates(t *testing.T) {
 func TestScheduleRejectsUnsupportedYear(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewFastingUsecase(fastingrepository.NewKemenagCalendar()).Schedule(context.Background(), fasting.ScheduleRequest{
+	_, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodYear,
 		Date:   "2027-08-09",
 	})
 	if !errors.Is(err, ErrCalendarUnavailable) {
 		t.Fatalf("Schedule() error = %v, want ErrCalendarUnavailable", err)
 	}
+}
+
+func TestScheduleUmmAlQuraSupports2027(t *testing.T) {
+	t.Parallel()
+
+	got, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
+		Period:   fasting.SchedulePeriodYear,
+		Date:     "2027-08-09",
+		Calendar: fasting.CalendarUmmAlQura,
+	})
+	if err != nil {
+		t.Fatalf("Schedule() error = %v", err)
+	}
+	if got.Calendar != fasting.CalendarUmmAlQura || got.CalendarSource.ID != "umm-al-qura" {
+		t.Errorf("calendar/source = %q/%q, want umm-al-qura/umm-al-qura", got.Calendar, got.CalendarSource.ID)
+	}
+	if got.Total == 0 {
+		t.Error("Umm al-Qura year schedule is empty")
+	}
+}
+
+func TestScheduleRejectsUnsupportedCalendar(t *testing.T) {
+	t.Parallel()
+
+	_, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
+		Period:   fasting.SchedulePeriodMonth,
+		Date:     "2026-08-09",
+		Calendar: "other",
+	})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("Schedule() error = %v, want ErrInvalidRequest", err)
+	}
+}
+
+func newCalendarUsecase() *FastingUsecase {
+	return NewFastingUsecase(
+		fastingrepository.NewKemenagCalendar(),
+		fastingrepository.NewUmmAlQuraCalendar(),
+	)
 }
 
 func assertScheduleDates(t *testing.T, dates []fasting.ScheduleDate, want []string) {

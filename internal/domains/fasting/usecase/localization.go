@@ -28,7 +28,14 @@ func disclaimer(language fasting.Language) string {
 	)
 }
 
-func calendarCaveat(language fasting.Language) string {
+func calendarCaveat(language fasting.Language, calendar fasting.Calendar) string {
+	if calendar == fasting.CalendarUmmAlQura {
+		return text(language,
+			"Umm al-Qura is Saudi Arabia's civil planning calendar. Its dates can differ from calendars accepted by other authorities and localities; verify dates used for worship with the relevant authority.",
+			"Umm al-Qura adalah kalender sipil untuk perencanaan di Arab Saudi. Tanggalnya dapat berbeda dari kalender yang diterima otoritas dan wilayah lain; pastikan tanggal ibadah kepada otoritas yang relevan.",
+		)
+	}
+
 	return text(language,
 		"For worship, Ramadan, Shawwal, and Dhu al-Hijjah dates can be superseded by an official Kemenag Sidang Isbat decision.",
 		"Untuk keperluan ibadah, tanggal Ramadan, Syawal, dan Zulhijah dapat berubah mengikuti keputusan resmi Sidang Isbat Kemenag.",

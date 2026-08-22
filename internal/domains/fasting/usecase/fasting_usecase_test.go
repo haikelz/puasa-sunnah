@@ -59,7 +59,7 @@ func TestClassify(t *testing.T) {
 		},
 	}
 
-	service := NewFastingUsecase(nil)
+	service := NewFastingUsecase(nil, nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -79,7 +79,7 @@ func TestClassify(t *testing.T) {
 func TestClassifyRejectsInvalidInput(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewFastingUsecase(nil).Classify(context.Background(), fasting.ClassificationRequest{
+	_, err := NewFastingUsecase(nil, nil).Classify(context.Background(), fasting.ClassificationRequest{
 		Date: "25-06-2026", Hijri: fasting.HijriDate{Year: 1448, Month: 1, Day: 10},
 	})
 	if !errors.Is(err, ErrInvalidRequest) {

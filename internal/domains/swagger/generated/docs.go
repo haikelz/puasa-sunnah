@@ -113,7 +113,7 @@ const docTemplate = `{
         },
         "/api/{language}/fasting/schedules": {
             "get": {
-                "description": "Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Dates use the published Kementerian Agama RI 2026 calendar and Asia/Jakarta timezone.",
+                "description": "Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone.",
                 "produces": [
                     "application/json"
                 ],
@@ -150,6 +150,17 @@ const docTemplate = `{
                         "example": "2026-08-09",
                         "description": "Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta",
                         "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "umm-al-qura"
+                        ],
+                        "type": "string",
+                        "default": "id",
+                        "description": "Hijri calendar source; defaults to id",
+                        "name": "calendar",
                         "in": "query"
                     },
                     {
@@ -222,6 +233,17 @@ const docTemplate = `{
                     "example": "ok"
                 }
             }
+        },
+        "fasting.Calendar": {
+            "type": "string",
+            "enum": [
+                "id",
+                "umm-al-qura"
+            ],
+            "x-enum-varnames": [
+                "CalendarIndonesia",
+                "CalendarUmmAlQura"
+            ]
         },
         "fasting.CalendarSource": {
             "type": "object",
@@ -385,6 +407,9 @@ const docTemplate = `{
                 "audience": {
                     "type": "string"
                 },
+                "calendar": {
+                    "$ref": "#/definitions/fasting.Calendar"
+                },
                 "calendar_source": {
                     "$ref": "#/definitions/fasting.CalendarSource"
                 },
@@ -529,7 +554,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{"http", "https"},
 	Title:            "Puasa Sunnah API",
-	Description:      "Production API for classifying and scheduling voluntary Islamic fasting days using the published Kementerian Agama RI 2026 Hijri calendar.\nCalendar output is planning information, not a fatwa. Ramadan, Shawwal, and Dhu al-Hijjah dates may be superseded by an official Sidang Isbat decision.",
+	Description:      "Production API for classifying and scheduling voluntary Islamic fasting days using an explicitly selected Indonesian or Umm al-Qura Hijri calendar.\nCalendar output is planning information, not a fatwa. Dates can differ between accepted authorities and localities.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

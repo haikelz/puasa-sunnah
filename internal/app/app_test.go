@@ -77,7 +77,8 @@ func TestAPI(t *testing.T) {
 		}
 		var payload struct {
 			Data struct {
-				Total          int `json:"total"`
+				Calendar       string `json:"calendar"`
+				Total          int    `json:"total"`
 				CalendarSource struct {
 					ID string `json:"id"`
 				} `json:"calendar_source"`
@@ -86,8 +87,44 @@ func TestAPI(t *testing.T) {
 		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 			t.Fatal(err)
 		}
-		if payload.Data.Total != 11 || payload.Data.CalendarSource.ID != "kemenag-ri-2026" {
-			t.Fatalf("schedule total/source = %d/%q, want 11/kemenag-ri-2026", payload.Data.Total, payload.Data.CalendarSource.ID)
+		if payload.Data.Calendar != "id" || payload.Data.Total != 11 || payload.Data.CalendarSource.ID != "kemenag-ri-2026" {
+			t.Fatalf("schedule calendar/total/source = %q/%d/%q, want id/11/kemenag-ri-2026", payload.Data.Calendar, payload.Data.Total, payload.Data.CalendarSource.ID)
+		}
+	})
+
+	t.Run("Umm al-Qura schedule", func(t *testing.T) {
+		request, err := http.NewRequest(http.MethodGet, "/api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := server.Test(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			payload, _ := io.ReadAll(response.Body)
+			t.Fatalf("status = %d, want %d: %s", response.StatusCode, http.StatusOK, payload)
+		}
+
+		var payload struct {
+			Data struct {
+				Calendar       string `json:"calendar"`
+				Total          int    `json:"total"`
+				CalendarSource struct {
+					ID     string `json:"id"`
+					Caveat string `json:"caveat"`
+				} `json:"calendar_source"`
+			} `json:"data"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Data.Calendar != "umm-al-qura" || payload.Data.Total == 0 || payload.Data.CalendarSource.ID != "umm-al-qura" {
+			t.Fatalf("schedule calendar/total/source = %q/%d/%q", payload.Data.Calendar, payload.Data.Total, payload.Data.CalendarSource.ID)
+		}
+		if !strings.Contains(payload.Data.CalendarSource.Caveat, "Arab Saudi") {
+			t.Errorf("Indonesian Umm al-Qura caveat = %q", payload.Data.CalendarSource.Caveat)
 		}
 	})
 
@@ -168,6 +205,7 @@ func TestAPI(t *testing.T) {
 			wantText   string
 		}{
 			{"/api/id/fasting/schedules?period=decade&date=2026-08-09", http.StatusBadRequest, "period harus bernilai"},
+			{"/api/id/fasting/schedules?period=year&date=2026-08-09&calendar=other", http.StatusBadRequest, "calendar harus bernilai"},
 			{"/api/id/fasting/schedules?period=year&date=2027-08-09", http.StatusUnprocessableEntity, "kalender hanya mencakup"},
 		}
 		for _, tt := range tests {
