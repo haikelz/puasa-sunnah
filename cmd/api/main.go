@@ -25,7 +25,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := app.New(cfg)
+	server, err := app.New(cfg)
+	if err != nil {
+		slog.Error("create application", "error", err)
+		os.Exit(1)
+	}
 	errCh := make(chan error, 1)
 	go func() {
 		slog.Info("HTTP server listening", "address", cfg.HTTPAddress())

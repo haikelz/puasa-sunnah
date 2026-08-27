@@ -16,9 +16,6 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 	if err != nil {
 		return fasting.Schedule{}, err
 	}
-	if calendar == nil {
-		return fasting.Schedule{}, fmt.Errorf("%w: %s", ErrCalendarUnavailable, text(request.Language, "no calendar source configured", "sumber kalender belum dikonfigurasi"))
-	}
 
 	anchor, err := scheduleAnchor(request.Date, request.Language)
 	if err != nil {

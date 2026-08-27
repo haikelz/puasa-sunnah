@@ -14,7 +14,10 @@ import (
 func TestAPI(t *testing.T) {
 	t.Parallel()
 
-	server := New(config.Config{AppName: "test", Port: 8080})
+	server, err := New(config.Config{AppName: "test", Port: 8080})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
 
 	t.Run("health", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)

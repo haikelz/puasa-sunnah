@@ -12,7 +12,7 @@ import (
 func TestScheduleWeek(t *testing.T) {
 	t.Parallel()
 
-	got, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
+	got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodWeek,
 		Date:   "2026-08-09",
 	})
@@ -34,7 +34,7 @@ func TestScheduleWeek(t *testing.T) {
 func TestScheduleMonthIncludesWhiteDaysAndOverlaps(t *testing.T) {
 	t.Parallel()
 
-	got, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
+	got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodMonth,
 		Date:   "2026-08-09",
 	})
@@ -56,7 +56,7 @@ func TestScheduleMonthIncludesWhiteDaysAndOverlaps(t *testing.T) {
 func TestScheduleYearSuppressesRestrictedDates(t *testing.T) {
 	t.Parallel()
 
-	got, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
+	got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodYear,
 		Date:   "2026-08-09",
 	})
@@ -76,7 +76,7 @@ func TestScheduleYearSuppressesRestrictedDates(t *testing.T) {
 func TestScheduleRejectsUnsupportedYear(t *testing.T) {
 	t.Parallel()
 
-	_, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
+	_, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodYear,
 		Date:   "2027-08-09",
 	})
@@ -88,7 +88,7 @@ func TestScheduleRejectsUnsupportedYear(t *testing.T) {
 func TestScheduleUmmAlQuraSupports2027(t *testing.T) {
 	t.Parallel()
 
-	got, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
+	got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
 		Period:   fasting.SchedulePeriodYear,
 		Date:     "2027-08-09",
 		Calendar: fasting.CalendarUmmAlQura,
@@ -107,7 +107,7 @@ func TestScheduleUmmAlQuraSupports2027(t *testing.T) {
 func TestScheduleRejectsUnsupportedCalendar(t *testing.T) {
 	t.Parallel()
 
-	_, err := newCalendarUsecase().Schedule(context.Background(), fasting.ScheduleRequest{
+	_, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
 		Period:   fasting.SchedulePeriodMonth,
 		Date:     "2026-08-09",
 		Calendar: "other",
@@ -117,11 +117,16 @@ func TestScheduleRejectsUnsupportedCalendar(t *testing.T) {
 	}
 }
 
-func newCalendarUsecase() *FastingUsecase {
-	return NewFastingUsecase(
+func newCalendarUsecase(t *testing.T) *FastingUsecase {
+	t.Helper()
+	service, err := NewFastingUsecase(
 		fastingrepository.NewKemenagCalendar(),
 		fastingrepository.NewUmmAlQuraCalendar(),
 	)
+	if err != nil {
+		t.Fatalf("NewFastingUsecase() error = %v", err)
+	}
+	return service
 }
 
 func assertScheduleDates(t *testing.T, dates []fasting.ScheduleDate, want []string) {

@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -15,8 +16,26 @@ type Handler struct {
 	usecase fasting.Usecase
 }
 
-func NewHandler(usecase fasting.Usecase) *Handler {
-	return &Handler{usecase: usecase}
+var errUsecaseRequired = errors.New("fasting usecase is required")
+
+func NewHandler(usecase fasting.Usecase) (*Handler, error) {
+	if isNilUsecase(usecase) {
+		return nil, errUsecaseRequired
+	}
+	return &Handler{usecase: usecase}, nil
+}
+
+func isNilUsecase(usecase fasting.Usecase) bool {
+	if usecase == nil {
+		return true
+	}
+	value := reflect.ValueOf(usecase)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
 }
 
 func (h *Handler) Register(router fiber.Router) {

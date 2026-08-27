@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"puasa-sunnah/internal/domains/fasting"
+	fastingrepository "puasa-sunnah/internal/domains/fasting/repository"
 )
 
 func TestClassify(t *testing.T) {
@@ -59,7 +60,7 @@ func TestClassify(t *testing.T) {
 		},
 	}
 
-	service := NewFastingUsecase(nil, nil)
+	service := newCalendarUsecase(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -79,11 +80,44 @@ func TestClassify(t *testing.T) {
 func TestClassifyRejectsInvalidInput(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewFastingUsecase(nil, nil).Classify(context.Background(), fasting.ClassificationRequest{
+	_, err := newCalendarUsecase(t).Classify(context.Background(), fasting.ClassificationRequest{
 		Date: "25-06-2026", Hijri: fasting.HijriDate{Year: 1448, Month: 1, Day: 10},
 	})
 	if !errors.Is(err, ErrInvalidRequest) {
 		t.Fatalf("Classify() error = %v, want ErrInvalidRequest", err)
+	}
+}
+
+func TestNewFastingUsecaseRequiresCalendars(t *testing.T) {
+	t.Parallel()
+
+	indonesiaCalendar := fastingrepository.NewKemenagCalendar()
+	ummAlQuraCalendar := fastingrepository.NewUmmAlQuraCalendar()
+	var nilIndonesiaCalendar *fastingrepository.KemenagCalendar
+	var nilUmmAlQuraCalendar *fastingrepository.UmmAlQuraCalendar
+	tests := []struct {
+		name      string
+		indonesia fasting.CalendarRepository
+		ummAlQura fasting.CalendarRepository
+		want      error
+	}{
+		{name: "nil Indonesia calendar", ummAlQura: ummAlQuraCalendar, want: errIndonesiaCalendarRequired},
+		{name: "typed nil Indonesia calendar", indonesia: nilIndonesiaCalendar, ummAlQura: ummAlQuraCalendar, want: errIndonesiaCalendarRequired},
+		{name: "nil Umm al-Qura calendar", indonesia: indonesiaCalendar, want: errUmmAlQuraCalendarRequired},
+		{name: "typed nil Umm al-Qura calendar", indonesia: indonesiaCalendar, ummAlQura: nilUmmAlQuraCalendar, want: errUmmAlQuraCalendarRequired},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			service, err := NewFastingUsecase(tt.indonesia, tt.ummAlQura)
+			if service != nil {
+				t.Errorf("NewFastingUsecase() service = %#v, want nil", service)
+			}
+			if !errors.Is(err, tt.want) {
+				t.Errorf("NewFastingUsecase() error = %v, want %v", err, tt.want)
+			}
+		})
 	}
 }
 

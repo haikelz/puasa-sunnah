@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"puasa-sunnah/internal/domains/fasting"
@@ -11,6 +12,9 @@ import (
 
 var ErrInvalidRequest = errors.New("invalid request")
 var ErrCalendarUnavailable = errors.New("calendar does not cover requested range")
+
+var errIndonesiaCalendarRequired = errors.New("Indonesia calendar is required")
+var errUmmAlQuraCalendarRequired = errors.New("Umm al-Qura calendar is required")
 
 type FastingUsecase struct {
 	indonesiaCalendar fasting.CalendarRepository
@@ -23,10 +27,30 @@ type parsedRequest struct {
 	isPilgrimAtArafah bool
 }
 
-func NewFastingUsecase(indonesiaCalendar, ummAlQuraCalendar fasting.CalendarRepository) *FastingUsecase {
+func NewFastingUsecase(indonesiaCalendar, ummAlQuraCalendar fasting.CalendarRepository) (*FastingUsecase, error) {
+	if isNilCalendar(indonesiaCalendar) {
+		return nil, errIndonesiaCalendarRequired
+	}
+	if isNilCalendar(ummAlQuraCalendar) {
+		return nil, errUmmAlQuraCalendarRequired
+	}
+
 	return &FastingUsecase{
 		indonesiaCalendar: indonesiaCalendar,
 		ummAlQuraCalendar: ummAlQuraCalendar,
+	}, nil
+}
+
+func isNilCalendar(calendar fasting.CalendarRepository) bool {
+	if calendar == nil {
+		return true
+	}
+	value := reflect.ValueOf(calendar)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
 	}
 }
 

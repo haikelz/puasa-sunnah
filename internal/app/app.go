@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -18,7 +19,7 @@ type HealthResponse struct {
 	Service string `json:"service" example:"puasa-sunnah-api"`
 }
 
-func New(cfg config.Config) *fiber.App {
+func New(cfg config.Config) (*fiber.App, error) {
 	server := fiber.New(fiber.Config{
 		AppName:      cfg.AppName,
 		ErrorHandler: errorHandler,
@@ -30,11 +31,17 @@ func New(cfg config.Config) *fiber.App {
 
 	kemenagCalendar := fastingrepository.NewKemenagCalendar()
 	ummAlQuraCalendar := fastingrepository.NewUmmAlQuraCalendar()
-	fastingService := fastingusecase.NewFastingUsecase(kemenagCalendar, ummAlQuraCalendar)
-	fastingHandler := fastinghttp.NewHandler(fastingService)
+	fastingService, err := fastingusecase.NewFastingUsecase(kemenagCalendar, ummAlQuraCalendar)
+	if err != nil {
+		return nil, fmt.Errorf("create fasting usecase: %w", err)
+	}
+	fastingHandler, err := fastinghttp.NewHandler(fastingService)
+	if err != nil {
+		return nil, fmt.Errorf("create fasting HTTP handler: %w", err)
+	}
 	fastingHandler.Register(server.Group("/api/:language/fasting"))
 
-	return server
+	return server, nil
 }
 
 // health godoc
