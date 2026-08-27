@@ -77,3 +77,12 @@ Core rules and references are documented in `README.md` and returned by `GET /ap
 - Do not commit `.vercel/` or credentials. Configure production environment variables through Vercel project settings or the Vercel CLI.
 - Treat the runtime filesystem as ephemeral. Persist future durable data in an external service, not local files.
 - Ask before running `npx vercel --prod` because it changes shared production infrastructure. `npx vercel build` is safe local validation.
+
+<!-- AI-GUIDELINES:BEGIN -->
+## AI Engineering Guidelines
+
+Read `.agents/general.md` for every task. Read only the applicable companion guidelines below; repository-local contracts and instructions remain authoritative.
+
+- `.agents/guidelines/go.md`
+- `.agents/guidelines/docker.md`
+<!-- AI-GUIDELINES:END -->

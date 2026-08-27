@@ -1,0 +1,4 @@
+# ai-guideline installer manifest v1
+general.md 9be844d4348fe135cdeced27965fd3be05aa6798981464bdda5975312390809f
+guidelines/go.md 9c770fa493dfe4f3b32c36848f80b7b6e439562b4ef3c6f15618793fba363daa
+guidelines/docker.md 4580f13093d975124e242141b031aa9aa59c2ca18f1c533ec5868e0c1244cd16
