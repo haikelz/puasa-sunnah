@@ -43,7 +43,11 @@ func NewKemenagCalendar() *KemenagCalendar {
 	}}
 }
 
-func (c *KemenagCalendar) HijriDate(_ context.Context, value time.Time) (fasting.HijriDate, error) {
+func (c *KemenagCalendar) HijriDate(ctx context.Context, value time.Time) (fasting.HijriDate, error) {
+	if err := ctx.Err(); err != nil {
+		return fasting.HijriDate{}, err
+	}
+
 	value = date(value.Year(), value.Month(), value.Day())
 	if value.Before(coverageStart) || value.After(coverageEnd) {
 		return fasting.HijriDate{}, fmt.Errorf("%w: Kemenag 2026 covers %s through %s", fasting.ErrDateOutsideCalendar, coverageStart.Format(time.DateOnly), coverageEnd.Format(time.DateOnly))

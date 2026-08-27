@@ -21,11 +21,15 @@ func NewUmmAlQuraCalendar() *UmmAlQuraCalendar {
 	return &UmmAlQuraCalendar{}
 }
 
-func (c *UmmAlQuraCalendar) HijriDate(_ context.Context, value time.Time) (fasting.HijriDate, error) {
+func (c *UmmAlQuraCalendar) HijriDate(ctx context.Context, value time.Time) (fasting.HijriDate, error) {
+	if err := ctx.Err(); err != nil {
+		return fasting.HijriDate{}, err
+	}
+
 	date := time.Date(value.Year(), value.Month(), value.Day(), 12, 0, 0, 0, time.UTC)
 	converted, err := hijri.CreateUmmAlQuraDate(date)
 	if err != nil {
-		return fasting.HijriDate{}, fmt.Errorf("%w: Umm al-Qura covers %s through %s", fasting.ErrDateOutsideCalendar, ummAlQuraCoverageStart, ummAlQuraCoverageEnd)
+		return fasting.HijriDate{}, fmt.Errorf("%w: Umm al-Qura covers %s through %s: %w", fasting.ErrDateOutsideCalendar, ummAlQuraCoverageStart, ummAlQuraCoverageEnd, err)
 	}
 
 	return fasting.HijriDate{

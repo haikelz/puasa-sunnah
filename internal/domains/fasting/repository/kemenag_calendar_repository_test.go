@@ -58,6 +58,17 @@ func TestKemenagCalendarRejectsUnsupportedDate(t *testing.T) {
 	}
 }
 
+func TestKemenagCalendarHonorsCancellation(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := NewKemenagCalendar().HijriDate(ctx, coverageStart)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("HijriDate() error = %v, want context.Canceled", err)
+	}
+}
+
 func TestKemenagCalendarMonthBoundaries(t *testing.T) {
 	t.Parallel()
 

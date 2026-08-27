@@ -55,3 +55,14 @@ func TestUmmAlQuraCalendarRejectsUnsupportedDate(t *testing.T) {
 		}
 	}
 }
+
+func TestUmmAlQuraCalendarHonorsCancellation(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := NewUmmAlQuraCalendar().HijriDate(ctx, time.Date(2026, time.August, 9, 0, 0, 0, 0, time.UTC))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("HijriDate() error = %v, want context.Canceled", err)
+	}
+}
