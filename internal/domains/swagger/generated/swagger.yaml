@@ -299,7 +299,8 @@ paths:
       description: Returns recommended voluntary fasting opportunities for the Gregorian
         week, month, or year containing the anchor date. Select the published Indonesian
         Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta
-        timezone.
+        timezone. format=ics returns a downloadable text/calendar file with all-day
+        events instead of the JSON envelope.
       parameters:
       - description: Response language
         enum:
@@ -330,6 +331,28 @@ paths:
         in: query
         name: calendar
         type: string
+      - collectionFormat: csv
+        description: Filter recommendation keys (OR); omitted means all
+        in: query
+        items:
+          enum:
+          - monday_thursday
+          - white_days
+          - ashura
+          - six_shawwal_candidate
+          - first_nine_dhul_hijjah
+          - arafah
+          type: string
+        name: types
+        type: array
+      - default: json
+        description: Response representation
+        enum:
+        - json
+        - ics
+        in: query
+        name: format
+        type: string
       - default: false
         description: Apply the pilgrim-at-Arafah exception
         in: query
@@ -337,6 +360,7 @@ paths:
         type: boolean
       produces:
       - application/json
+      - text/calendar
       responses:
         "200":
           description: OK

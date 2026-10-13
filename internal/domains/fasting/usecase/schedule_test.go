@@ -129,6 +129,56 @@ func newCalendarUsecase(t *testing.T) *FastingUsecase {
 	return service
 }
 
+func TestScheduleTypeFilter(t *testing.T) {
+	t.Parallel()
+
+	for _, language := range []fasting.Language{fasting.LanguageEnglish, fasting.LanguageIndonesian} {
+		service := newCalendarUsecase(t)
+		request := fasting.ScheduleRequest{Period: fasting.SchedulePeriodMonth, Date: "2026-08-09", Types: []string{"white_days", "white_days"}, Language: language}
+		got, err := service.Schedule(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertScheduleDates(t, got.Dates, []string{"2026-08-26", "2026-08-27", "2026-08-28"})
+		for _, date := range got.Dates {
+			assertKeys(t, date.Recommendations, []string{"white_days"})
+		}
+
+		request.Types = []string{"white_days", "monday_thursday"}
+		got, err = service.Schedule(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Total != 11 {
+			t.Fatalf("OR total = %d, want 11", got.Total)
+		}
+
+		request.Types = []string{"ashura"}
+		got, err = service.Schedule(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Total != 0 || got.Dates == nil {
+			t.Fatalf("empty filter result = %+v", got)
+		}
+
+		request.Types = []string{"white_days", "invalid"}
+		if _, err := service.Schedule(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
+			t.Fatalf("invalid types error = %v", err)
+		}
+
+		request.Date = "2026-05-09"
+		request.Types = []string{"white_days"}
+		got, err = service.Schedule(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hasScheduleDate(got.Dates, "2026-05-30") {
+			t.Fatal("filter bypassed Tashriq restriction")
+		}
+	}
+}
+
 func assertScheduleDates(t *testing.T, dates []fasting.ScheduleDate, want []string) {
 	t.Helper()
 	if len(dates) != len(want) {

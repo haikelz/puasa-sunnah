@@ -12,6 +12,14 @@ import (
 var jakarta = time.FixedZone("Asia/Jakarta", 7*60*60)
 
 func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleRequest) (fasting.Schedule, error) {
+	for _, key := range request.Types {
+		switch key {
+		case "monday_thursday", "white_days", "ashura", "six_shawwal_candidate", "first_nine_dhul_hijjah", "arafah":
+		default:
+			return fasting.Schedule{}, fmt.Errorf("%w: %s", ErrInvalidRequest, text(request.Language, "types contains an unsupported fasting type", "types berisi jenis puasa yang tidak didukung"))
+		}
+	}
+
 	calendarID, calendar, err := u.scheduleCalendar(request.Calendar, request.Language)
 	if err != nil {
 		return fasting.Schedule{}, err
@@ -73,6 +81,21 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 		}
 		if classification.Verdict != fasting.VerdictRecommended {
 			continue
+		}
+		if len(request.Types) > 0 {
+			filtered := make([]fasting.Occurrence, 0)
+			for _, recommendation := range classification.Recommendations {
+				for _, key := range request.Types {
+					if recommendation.Key == key {
+						filtered = append(filtered, recommendation)
+						break
+					}
+				}
+			}
+			classification.Recommendations = filtered
+			if len(filtered) == 0 {
+				continue
+			}
 		}
 		result.Dates = append(result.Dates, fasting.ScheduleDate{
 			Date:            classification.Date,

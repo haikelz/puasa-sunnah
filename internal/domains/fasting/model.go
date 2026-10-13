@@ -76,6 +76,7 @@ const (
 
 type ScheduleRequest struct {
 	Period            SchedulePeriod
+	Types             []string
 	Date              string
 	IsPilgrimAtArafah bool
 	Language          Language

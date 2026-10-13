@@ -60,13 +60,15 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 
 // schedule godoc
 // @Summary Get a fasting schedule
-// @Description Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone.
+// @Description Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone. format=ics returns a downloadable text/calendar file with all-day events instead of the JSON envelope.
 // @Tags Fasting
-// @Produce json
+// @Produce json,text/calendar
 // @Param language path string true "Response language" Enums(en, id)
 // @Param period query string true "Schedule period" Enums(week, month, year)
 // @Param date query string false "Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta"
 // @Param calendar query string false "Hijri calendar source; defaults to id" Enums(id, umm-al-qura) default(id)
+// @Param types query []string false "Filter recommendation keys (OR); omitted means all" collectionFormat(csv) Enums(monday_thursday, white_days, ashura, six_shawwal_candidate, first_nine_dhul_hijjah, arafah)
+// @Param format query string false "Response representation" Enums(json, ics) default(json)
 // @Param is_pilgrim_at_arafah query boolean false "Apply the pilgrim-at-Arafah exception" default(false)
 // @Success 200 {object} ScheduleResponse
 // @Failure 400 {object} ErrorResponse "Invalid query"
@@ -75,6 +77,18 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 // @Router /api/{language}/fasting/schedules [get]
 func (h *Handler) schedule(c *fiber.Ctx) error {
 	language := requestLanguage(c)
+	format := c.Query("format", "json")
+	if format != "json" && format != "ics" {
+		message := "format must be json or ics"
+		if language == fasting.LanguageIndonesian {
+			message = "format harus bernilai json atau ics"
+		}
+		return fiber.NewError(fiber.StatusBadRequest, message)
+	}
+	var types []string
+	if c.Query("types") != "" {
+		types = strings.Split(c.Query("types"), ",")
+	}
 	isPilgrim := false
 	if value := c.Query("is_pilgrim_at_arafah"); value != "" {
 		parsed, err := strconv.ParseBool(value)
@@ -94,6 +108,7 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 		IsPilgrimAtArafah: isPilgrim,
 		Language:          language,
 		Calendar:          fasting.Calendar(c.Query("calendar")),
+		Types:             types,
 	})
 	if err != nil {
 		switch {
@@ -106,6 +121,11 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 		}
 	}
 
+	if format == "ics" {
+		c.Set(fiber.HeaderContentType, "text/calendar; charset=utf-8")
+		c.Set(fiber.HeaderContentDisposition, "attachment; filename=puasa-sunnah.ics")
+		return c.SendString(scheduleICS(result))
+	}
 	return c.JSON(fiber.Map{"data": result})
 }
 

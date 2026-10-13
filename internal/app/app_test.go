@@ -19,6 +19,69 @@ func TestAPI(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 
+	t.Run("filtered calendar export", func(t *testing.T) {
+		for _, language := range []string{"en", "id"} {
+			request, err := http.NewRequest(http.MethodGet, "/api/"+language+"/fasting/schedules?period=month&date=2026-08-09&types=white_days&format=ics", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := server.Test(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := io.ReadAll(response.Body)
+			response.Body.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			unfolded := strings.ReplaceAll(string(body), "\r\n ", "")
+			if response.StatusCode != 200 || !strings.HasPrefix(response.Header.Get("Content-Type"), "text/calendar") || !strings.Contains(response.Header.Get("Content-Disposition"), ".ics") {
+				t.Fatalf("export response: %d %v", response.StatusCode, response.Header)
+			}
+			if strings.Count(unfolded, "BEGIN:VEVENT") != 3 || !strings.Contains(unfolded, "DTSTART;VALUE=DATE:20260827\r\nDTEND;VALUE=DATE:20260828") || !strings.Contains(unfolded, "https://aceh.kemenag.go.id/") || !strings.Contains(unfolded, "Sidang Isbat") {
+				t.Fatalf("unexpected calendar: %s", unfolded)
+			}
+			for _, line := range strings.Split(string(body), "\r\n") {
+				if len(line) > 75 {
+					t.Fatalf("line exceeds 75 bytes: %q", line)
+				}
+			}
+		}
+	})
+
+	t.Run("export validation and empty calendar", func(t *testing.T) {
+		for _, query := range []string{"types=unknown", "types=white_days,", "format=pdf"} {
+			request, err := http.NewRequest(http.MethodGet, "/api/id/fasting/schedules?period=month&date=2026-08-09&"+query, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := server.Test(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response.Body.Close()
+			if response.StatusCode != http.StatusBadRequest {
+				t.Fatalf("%s status = %d", query, response.StatusCode)
+			}
+		}
+		request, err := http.NewRequest(http.MethodGet, "/api/en/fasting/schedules?period=month&date=2026-08-09&types=ashura&format=ics", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := server.Test(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.StatusCode != 200 || !strings.HasSuffix(string(body), "END:VCALENDAR\r\n") || strings.Contains(string(body), "BEGIN:VEVENT") {
+			t.Fatalf("empty calendar: %d %s", response.StatusCode, body)
+		}
+	})
+
 	t.Run("health", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)
 		if err != nil {

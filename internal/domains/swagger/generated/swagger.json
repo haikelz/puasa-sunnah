@@ -110,9 +110,10 @@
         },
         "/api/{language}/fasting/schedules": {
             "get": {
-                "description": "Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone.",
+                "description": "Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone. format=ics returns a downloadable text/calendar file with all-day events instead of the JSON envelope.",
                 "produces": [
-                    "application/json"
+                    "application/json",
+                    "text/calendar"
                 ],
                 "tags": [
                     "Fasting"
@@ -157,6 +158,35 @@
                         "default": "id",
                         "description": "Hijri calendar source; defaults to id",
                         "name": "calendar",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "enum": [
+                                "monday_thursday",
+                                "white_days",
+                                "ashura",
+                                "six_shawwal_candidate",
+                                "first_nine_dhul_hijjah",
+                                "arafah"
+                            ],
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Filter recommendation keys (OR); omitted means all",
+                        "name": "types",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "json",
+                            "ics"
+                        ],
+                        "type": "string",
+                        "default": "json",
+                        "description": "Response representation",
+                        "name": "format",
                         "in": "query"
                     },
                     {
