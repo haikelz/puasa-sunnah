@@ -1,6 +1,7 @@
 package http
 
 import (
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -73,7 +74,9 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 	}
 	var types []string
 	if c.Query("types") != "" {
-		types = strings.Split(c.Query("types"), ",")
+		for _, key := range strings.Split(c.Query("types"), ",") {
+			types = append(types, strings.TrimSpace(key))
+		}
 	}
 	isPilgrim := false
 	if value := c.Query("is_pilgrim_at_arafah"); value != "" {
@@ -130,7 +133,8 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 func (h *Handler) classify(c *fiber.Ctx) error {
 	language := requestLanguage(c)
 	var request fasting.ClassificationRequest
-	if err := c.BodyParser(&request); err != nil {
+	// Decode JSON directly; BodyParser would also accept form and XML bodies.
+	if err := json.Unmarshal(c.Body(), &request); err != nil {
 		message := "body must be valid JSON"
 		if language == fasting.LanguageIndonesian {
 			message = "body harus berupa JSON yang valid"

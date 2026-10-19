@@ -88,6 +88,39 @@ func TestAPI(t *testing.T) {
 		}
 	})
 
+	t.Run("input normalization", func(t *testing.T) {
+		request, err := http.NewRequest(http.MethodGet, "/api/en/fasting/schedules?period=month&date=2026-08-09&types=white_days,%20arafah", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := server.Test(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			t.Errorf("types with spaces status = %d, want %d", response.StatusCode, http.StatusOK)
+		}
+
+		request, err = http.NewRequest(http.MethodPost, "/api/en/fasting/classify", strings.NewReader("date=2026-06-25"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		response, err = server.Test(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), "body must be valid JSON") {
+			t.Errorf("form classify status/body = %d/%s", response.StatusCode, body)
+		}
+	})
+
 	t.Run("health", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)
 		if err != nil {
