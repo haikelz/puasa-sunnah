@@ -144,5 +144,8 @@ func TestRulesExposeFilterKeysInBothLanguages(t *testing.T) {
 				t.Errorf("%s rules missing schedule filter key %q", language, key)
 			}
 		}
+		if rules["first_nine_dhul_hijjah"].Caveat == "" {
+			t.Errorf("%s first_nine_dhul_hijjah rule has no caveat", language)
+		}
 	}
 }
