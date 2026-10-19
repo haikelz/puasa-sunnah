@@ -10,9 +10,6 @@ import (
 	"puasa-sunnah/internal/domains/fasting"
 )
 
-var ErrInvalidRequest = errors.New("invalid request")
-var ErrCalendarUnavailable = errors.New("calendar does not cover requested range")
-
 var errIndonesiaCalendarRequired = errors.New("Indonesia calendar is required")
 var errUmmAlQuraCalendarRequired = errors.New("Umm al-Qura calendar is required")
 
@@ -94,10 +91,10 @@ func (u *FastingUsecase) Classify(_ context.Context, request fasting.Classificat
 func parseRequest(request fasting.ClassificationRequest) (parsedRequest, error) {
 	date, err := time.Parse(time.DateOnly, request.Date)
 	if err != nil {
-		return parsedRequest{}, fmt.Errorf("%w: %s", ErrInvalidRequest, text(request.Language, "date must use YYYY-MM-DD", "tanggal harus menggunakan format YYYY-MM-DD"))
+		return parsedRequest{}, fmt.Errorf("%w: %s", fasting.ErrInvalidRequest, text(request.Language, "date must use YYYY-MM-DD", "tanggal harus menggunakan format YYYY-MM-DD"))
 	}
 	if request.Hijri.Year < 1 || request.Hijri.Month < 1 || request.Hijri.Month > 12 || request.Hijri.Day < 1 || request.Hijri.Day > 30 {
-		return parsedRequest{}, fmt.Errorf("%w: %s", ErrInvalidRequest, text(request.Language, "hijri year, month, or day is outside its supported range", "tahun, bulan, atau tanggal Hijriah berada di luar rentang yang didukung"))
+		return parsedRequest{}, fmt.Errorf("%w: %s", fasting.ErrInvalidRequest, text(request.Language, "hijri year, month, or day is outside its supported range", "tahun, bulan, atau tanggal Hijriah berada di luar rentang yang didukung"))
 	}
 
 	return parsedRequest{

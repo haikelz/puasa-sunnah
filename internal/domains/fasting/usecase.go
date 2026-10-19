@@ -1,6 +1,14 @@
 package fasting
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrInvalidRequest      = errors.New("invalid request")
+	ErrCalendarUnavailable = errors.New("calendar does not cover requested range")
+)
 
 type Usecase interface {
 	Classify(context.Context, ClassificationRequest) (Classification, error)

@@ -9,7 +9,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"puasa-sunnah/internal/domains/fasting"
-	fastingusecase "puasa-sunnah/internal/domains/fasting/usecase"
 )
 
 type Handler struct {
@@ -113,10 +112,10 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, fastingusecase.ErrInvalidRequest):
-			return fiber.NewError(fiber.StatusBadRequest, clientErrorMessage(err, fastingusecase.ErrInvalidRequest))
-		case errors.Is(err, fastingusecase.ErrCalendarUnavailable):
-			return fiber.NewError(fiber.StatusUnprocessableEntity, clientErrorMessage(err, fastingusecase.ErrCalendarUnavailable))
+		case errors.Is(err, fasting.ErrInvalidRequest):
+			return fiber.NewError(fiber.StatusBadRequest, clientErrorMessage(err, fasting.ErrInvalidRequest))
+		case errors.Is(err, fasting.ErrCalendarUnavailable):
+			return fiber.NewError(fiber.StatusUnprocessableEntity, clientErrorMessage(err, fasting.ErrCalendarUnavailable))
 		default:
 			return err
 		}
@@ -156,8 +155,8 @@ func (h *Handler) classify(c *fiber.Ctx) error {
 
 	result, err := h.usecase.Classify(c.UserContext(), request)
 	if err != nil {
-		if errors.Is(err, fastingusecase.ErrInvalidRequest) {
-			return fiber.NewError(fiber.StatusBadRequest, clientErrorMessage(err, fastingusecase.ErrInvalidRequest))
+		if errors.Is(err, fasting.ErrInvalidRequest) {
+			return fiber.NewError(fiber.StatusBadRequest, clientErrorMessage(err, fasting.ErrInvalidRequest))
 		}
 		return err
 	}

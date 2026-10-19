@@ -80,7 +80,7 @@ func TestScheduleRejectsUnsupportedYear(t *testing.T) {
 		Period: fasting.SchedulePeriodYear,
 		Date:   "2027-08-09",
 	})
-	if !errors.Is(err, ErrCalendarUnavailable) {
+	if !errors.Is(err, fasting.ErrCalendarUnavailable) {
 		t.Fatalf("Schedule() error = %v, want ErrCalendarUnavailable", err)
 	}
 }
@@ -112,7 +112,7 @@ func TestScheduleRejectsUnsupportedCalendar(t *testing.T) {
 		Date:     "2026-08-09",
 		Calendar: "other",
 	})
-	if !errors.Is(err, ErrInvalidRequest) {
+	if !errors.Is(err, fasting.ErrInvalidRequest) {
 		t.Fatalf("Schedule() error = %v, want ErrInvalidRequest", err)
 	}
 }
@@ -163,7 +163,7 @@ func TestScheduleTypeFilter(t *testing.T) {
 		}
 
 		request.Types = []string{"white_days", "invalid"}
-		if _, err := service.Schedule(context.Background(), request); !errors.Is(err, ErrInvalidRequest) {
+		if _, err := service.Schedule(context.Background(), request); !errors.Is(err, fasting.ErrInvalidRequest) {
 			t.Fatalf("invalid types error = %v", err)
 		}
 

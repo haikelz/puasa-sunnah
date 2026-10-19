@@ -16,7 +16,7 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 		switch key {
 		case "monday_thursday", "white_days", "ashura", "six_shawwal_candidate", "first_nine_dhul_hijjah", "arafah":
 		default:
-			return fasting.Schedule{}, fmt.Errorf("%w: %s", ErrInvalidRequest, text(request.Language, "types contains an unsupported fasting type", "types berisi jenis puasa yang tidak didukung"))
+			return fasting.Schedule{}, fmt.Errorf("%w: %s", fasting.ErrInvalidRequest, text(request.Language, "types contains an unsupported fasting type", "types berisi jenis puasa yang tidak didukung"))
 		}
 	}
 
@@ -63,7 +63,7 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 		if err != nil {
 			if errors.Is(err, fasting.ErrDateOutsideCalendar) {
 				source := calendar.Source()
-				return fasting.Schedule{}, fmt.Errorf("%w: %s", ErrCalendarUnavailable, text(request.Language,
+				return fasting.Schedule{}, fmt.Errorf("%w: %s", fasting.ErrCalendarUnavailable, text(request.Language,
 					fmt.Sprintf("calendar covers %s through %s", source.CoverageStart, source.CoverageEnd),
 					fmt.Sprintf("kalender hanya mencakup %s sampai %s", source.CoverageStart, source.CoverageEnd),
 				))
@@ -121,7 +121,7 @@ func (u *FastingUsecase) scheduleCalendar(calendarID fasting.Calendar, language 
 	case fasting.CalendarUmmAlQura:
 		return calendarID, u.ummAlQuraCalendar, nil
 	default:
-		return "", nil, fmt.Errorf("%w: %s", ErrInvalidRequest, text(language,
+		return "", nil, fmt.Errorf("%w: %s", fasting.ErrInvalidRequest, text(language,
 			"calendar must be id or umm-al-qura",
 			"calendar harus bernilai id atau umm-al-qura",
 		))
@@ -135,7 +135,7 @@ func scheduleAnchor(value string, language fasting.Language) (time.Time, error) 
 	}
 	parsed, err := time.ParseInLocation(time.DateOnly, value, jakarta)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("%w: %s", ErrInvalidRequest, text(language, "date must use YYYY-MM-DD", "tanggal harus menggunakan format YYYY-MM-DD"))
+		return time.Time{}, fmt.Errorf("%w: %s", fasting.ErrInvalidRequest, text(language, "date must use YYYY-MM-DD", "tanggal harus menggunakan format YYYY-MM-DD"))
 	}
 	return parsed, nil
 }
@@ -153,6 +153,6 @@ func scheduleRange(anchor time.Time, period fasting.SchedulePeriod, language fas
 		start := time.Date(anchor.Year(), time.January, 1, 0, 0, 0, 0, jakarta)
 		return start, start.AddDate(1, 0, -1), nil
 	default:
-		return time.Time{}, time.Time{}, fmt.Errorf("%w: %s", ErrInvalidRequest, text(language, "period must be week, month, or year", "period harus bernilai week, month, atau year"))
+		return time.Time{}, time.Time{}, fmt.Errorf("%w: %s", fasting.ErrInvalidRequest, text(language, "period must be week, month, or year", "period harus bernilai week, month, atau year"))
 	}
 }

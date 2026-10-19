@@ -83,7 +83,7 @@ func TestClassifyRejectsInvalidInput(t *testing.T) {
 	_, err := newCalendarUsecase(t).Classify(context.Background(), fasting.ClassificationRequest{
 		Date: "25-06-2026", Hijri: fasting.HijriDate{Year: 1448, Month: 1, Day: 10},
 	})
-	if !errors.Is(err, ErrInvalidRequest) {
+	if !errors.Is(err, fasting.ErrInvalidRequest) {
 		t.Fatalf("Classify() error = %v, want ErrInvalidRequest", err)
 	}
 }
