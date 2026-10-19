@@ -30,7 +30,7 @@ func TestAPI(t *testing.T) {
 				t.Fatal(err)
 			}
 			body, err := io.ReadAll(response.Body)
-			response.Body.Close()
+			_ = response.Body.Close()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -59,7 +59,7 @@ func TestAPI(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			response.Body.Close()
+			_ = response.Body.Close()
 			if response.StatusCode != http.StatusBadRequest {
 				t.Fatalf("%s status = %d", query, response.StatusCode)
 			}
@@ -72,7 +72,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			t.Fatal(err)
@@ -91,7 +91,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusOK)
 		}
@@ -108,7 +108,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		if response.StatusCode != http.StatusOK {
 			payload, _ := io.ReadAll(response.Body)
 			t.Fatalf("status = %d, want %d: %s", response.StatusCode, http.StatusOK, payload)
@@ -136,7 +136,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		if response.StatusCode != http.StatusOK {
 			payload, _ := io.ReadAll(response.Body)
 			t.Fatalf("status = %d, want %d: %s", response.StatusCode, http.StatusOK, payload)
@@ -167,7 +167,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		if response.StatusCode != http.StatusOK {
 			payload, _ := io.ReadAll(response.Body)
 			t.Fatalf("status = %d, want %d: %s", response.StatusCode, http.StatusOK, payload)
@@ -203,7 +203,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		if response.StatusCode != http.StatusOK {
 			payload, _ := io.ReadAll(response.Body)
 			t.Fatalf("status = %d, want %d: %s", response.StatusCode, http.StatusOK, payload)
@@ -247,7 +247,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		var payload struct {
 			Data []struct {
 				Name string `json:"name"`
@@ -284,7 +284,7 @@ func TestAPI(t *testing.T) {
 				t.Fatal(err)
 			}
 			body, err := io.ReadAll(response.Body)
-			response.Body.Close()
+			_ = response.Body.Close()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -304,7 +304,7 @@ func TestAPI(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			response.Body.Close()
+			_ = response.Body.Close()
 			if response.StatusCode != http.StatusNotFound {
 				t.Errorf("GET %s status = %d, want %d", path, response.StatusCode, http.StatusNotFound)
 			}
@@ -320,7 +320,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusOK)
 		}
@@ -346,7 +346,7 @@ func TestAPI(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			t.Fatal(err)
