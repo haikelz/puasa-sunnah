@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"puasa-sunnah/internal/domains/fasting"
@@ -117,12 +118,30 @@ func TestScheduleIndonesia2027(t *testing.T) {
 func TestScheduleRejectsUnsupportedYear(t *testing.T) {
 	t.Parallel()
 
-	_, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-		Period: fasting.SchedulePeriodYear,
-		Date:   "2028-08-09",
-	})
-	if !errors.Is(err, fasting.ErrCalendarUnavailable) {
-		t.Fatalf("Schedule() error = %v, want ErrCalendarUnavailable", err)
+	tests := []struct {
+		language fasting.Language
+		calendar fasting.Calendar
+		date     string
+		wantHint string
+	}{
+		{fasting.LanguageEnglish, fasting.CalendarIndonesia, "2028-08-09", "for other dates, calendar=umm-al-qura"},
+		{fasting.LanguageIndonesian, fasting.CalendarIndonesia, "2028-08-09", "untuk tanggal lain, calendar=umm-al-qura"},
+		{fasting.LanguageEnglish, fasting.CalendarUmmAlQura, "2100-08-09", ""},
+	}
+	for _, tt := range tests {
+		_, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
+			Period:   fasting.SchedulePeriodYear,
+			Date:     tt.date,
+			Language: tt.language,
+			Calendar: tt.calendar,
+		})
+		if !errors.Is(err, fasting.ErrCalendarUnavailable) {
+			t.Fatalf("%s/%s Schedule() error = %v, want ErrCalendarUnavailable", tt.language, tt.calendar, err)
+		}
+		hasHint := strings.Contains(err.Error(), "umm-al-qura")
+		if tt.wantHint == "" && hasHint || tt.wantHint != "" && !strings.Contains(err.Error(), tt.wantHint) {
+			t.Errorf("%s/%s error = %q, want hint %q", tt.language, tt.calendar, err, tt.wantHint)
+		}
 	}
 }
 

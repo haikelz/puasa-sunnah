@@ -69,7 +69,7 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 // @Success 200 {object} ScheduleResponse
 // @Header 200 {string} Cache-Control "CDN-cacheable for a day with an explicit date; 5 minutes when date is omitted"
 // @Failure 400 {object} ErrorResponse "Invalid query"
-// @Failure 422 {object} ErrorResponse "Calendar does not cover the requested range"
+// @Failure 422 {object} ErrorResponse "Calendar does not cover the requested range; calendar=id errors name calendar=umm-al-qura as an alternative"
 // @Failure 503 {object} ErrorResponse "Request timed out"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/schedules [get]

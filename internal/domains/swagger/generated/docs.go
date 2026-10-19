@@ -226,7 +226,7 @@ const docTemplate = `{
                         }
                     },
                     "422": {
-                        "description": "Calendar does not cover the requested range",
+                        "description": "Calendar does not cover the requested range; calendar=id errors name calendar=umm-al-qura as an alternative",
                         "schema": {
                             "$ref": "#/definitions/http.ErrorResponse"
                         }

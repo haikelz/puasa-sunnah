@@ -62,10 +62,18 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 		hijri, err := calendar.HijriDate(ctx, current)
 		if err != nil {
 			if errors.Is(err, fasting.ErrDateOutsideCalendar) {
-				return fasting.Schedule{}, fmt.Errorf("%w: %s", fasting.ErrCalendarUnavailable, text(request.Language,
+				message := text(request.Language,
 					fmt.Sprintf("calendar covers %s through %s", calendarSource.CoverageStart, calendarSource.CoverageEnd),
 					fmt.Sprintf("kalender hanya mencakup %s sampai %s", calendarSource.CoverageStart, calendarSource.CoverageEnd),
-				))
+				)
+				// Point to the alternative without switching to it: the caller must choose.
+				if calendarID == fasting.CalendarIndonesia {
+					message += text(request.Language,
+						"; for other dates, calendar=umm-al-qura offers Saudi planning dates that can differ from Kemenag",
+						"; untuk tanggal lain, calendar=umm-al-qura menyediakan tanggal perencanaan Arab Saudi yang dapat berbeda dari Kemenag",
+					)
+				}
+				return fasting.Schedule{}, fmt.Errorf("%w: %s", fasting.ErrCalendarUnavailable, message)
 			}
 			return fasting.Schedule{}, err
 		}

@@ -344,7 +344,7 @@ func TestAPI(t *testing.T) {
 		}{
 			{"/api/id/fasting/schedules?period=decade&date=2026-08-09", http.StatusBadRequest, "period harus bernilai"},
 			{"/api/id/fasting/schedules?period=year&date=2026-08-09&calendar=other", http.StatusBadRequest, "calendar harus bernilai"},
-			{"/api/id/fasting/schedules?period=year&date=2028-08-09", http.StatusUnprocessableEntity, "kalender hanya mencakup 2025-12-28 sampai 2027-12-31"},
+			{"/api/id/fasting/schedules?period=year&date=2028-08-09", http.StatusUnprocessableEntity, "kalender hanya mencakup 2025-12-28 sampai 2027-12-31; untuk tanggal lain, calendar=umm-al-qura"},
 			{"/api/id/fasting/schedules?period=year&date=2027-08-09", http.StatusOK, "kemenag-ri-2027"},
 		}
 		for _, tt := range tests {
