@@ -1,5 +1,6 @@
 .env
 bin/
+/server
 tmp/
 node_modules/
 .wrangler/
