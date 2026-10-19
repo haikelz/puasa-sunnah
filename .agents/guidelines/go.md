@@ -278,20 +278,163 @@ Tests MUST NOT use arbitrary sleeps as synchronization, depend on external netwo
 
 ## 18. Formatting and Static Analysis
 
-- All changed Go files MUST be formatted with the repository's configured formatter; otherwise use `gofmt`.
-- Imports SHOULD be managed with the repository's configured import tool or conventional Go tooling.
-- The agent MUST run `go vet` on affected packages and SHOULD run the configured linter.
-- Linter findings MUST be fixed or explicitly explained; disabling a check requires a narrow, documented reason.
-- Generated files MUST be regenerated through their declared generator, not hand-edited.
-- Build constraints MUST use current syntax and remain valid for all intended targets.
-- Comments and identifiers MUST use English unless a public protocol requires exact text.
+Formatting is executable policy in Go. The configured formatter is the source of
+truth; visual alignment produced by hand is not.
+
+### 18.1 Formatter authority
+
+- Every changed Go file **MUST** be formatted with the repository's configured
+  formatter. Use `gofmt -s` when no stricter formatter is established.
+- `gofmt` output **MUST NOT** be manually adjusted to satisfy personal spacing
+  preferences.
+- `gofumpt` **MUST NOT** be introduced or assumed unless the repository has
+  explicitly adopted and pinned it.
+- Formatting SHOULD be limited to changed files during implementation. Do not
+  create a repository-wide formatting diff for a focused task.
+- CI formatting checks **MUST** be non-mutating: they should report differences
+  and fail rather than rewrite source.
+
+### 18.2 Indentation, tabs, and spaces
+
+- Go source **MUST** use tabs for indentation exactly as emitted by `gofmt`.
+- Spaces **MUST NOT** replace leading indentation tabs.
+- Formatter-generated tabs and spaces MAY align struct fields, tags, constants,
+  and composite-literal elements. Developers and agents **MUST NOT** maintain
+  alignment manually.
+- Continuation indentation, `case` placement, labels, comments, and closing
+  delimiters **MUST** follow formatter output.
+- Trailing spaces and tabs are prohibited.
+- Files SHOULD use UTF-8 and LF line endings unless a generated or external
+  contract requires otherwise.
+- Semicolons **MUST NOT** be inserted manually to place multiple statements on
+  one line.
+
+### 18.3 Braces and statement layout
+
+- Opening braces belong on the declaration or control-flow line as formatted by
+  Go tooling.
+- Use one statement per line.
+- Closing braces and parentheses **MUST** align according to `gofmt`; do not add
+  visual indentation with spaces.
+- `else` belongs on the same line as the preceding closing brace when it is
+  needed.
+- Prefer an early return over `else` after a terminating branch. Keep the normal
+  path visually unindented.
+- Empty blocks require a clear reason. Do not use whitespace or empty blocks as
+  placeholders for future behavior.
+
+### 18.4 Blank lines and visual grouping
+
+- Use exactly one blank line between top-level declarations unless related
+  constants, variables, or types are intentionally grouped in one declaration
+  block.
+- Inside functions, blank lines SHOULD separate meaningful phases such as setup,
+  validation, execution, and result construction.
+- Do not place a blank line immediately after an opening brace or immediately
+  before a closing brace.
+- Multiple consecutive blank lines are prohibited.
+- A blank line **MUST NOT** split an error check from the operation whose error it
+  handles.
+- Comments that describe a block SHOULD remain adjacent to that block.
+- Whitespace **MUST NOT** be used to imply an architectural boundary that should
+  be represented by a function, type, or package.
+
+### 18.5 Imports
+
+- Imports **MUST** be sorted mechanically with the repository's configured tool.
+  Prefer `goimports` when the repository has adopted it; otherwise use standard
+  Go tooling.
+- Import blocks SHOULD group standard-library, module-local, and third-party
+  imports with one blank line between groups. Follow the repository's enforced
+  group order; otherwise prefer that order. `goimports -local <module-path>`
+  places module-local imports last, so use it only if that order is required.
+- Import aliases require a collision, generated API, or clearer domain name.
+  They **MUST NOT** compensate for poor package naming.
+- Dot imports are prohibited outside narrowly justified test conventions.
+- Blank imports require a documented registration or side-effect contract.
+- Unused imports **MUST NOT** be hidden through aliases or blank identifiers.
+
+### 18.6 Line wrapping and long expressions
+
+- Go has no universal maximum line length. Do not enforce arbitrary wrapping
+  that makes code harder to scan.
+- Wrap signatures, calls, literals, conditions, and fluent chains when semantic
+  grouping becomes clearer or horizontal scanning becomes difficult.
+- Multiline argument lists and literals **MUST** include the trailing comma
+  required by Go syntax and formatting.
+- When a fluent API chain is multiline, put one meaningful operation per line.
+- Complex boolean expressions SHOULD be decomposed into named predicates when
+  wrapping alone does not make the policy clear.
+- String literals, URLs, generated declarations, and external protocol values
+  MAY remain long when splitting would change or obscure the contract.
+- Do not concatenate strings solely to satisfy a visual column limit.
+
+### 18.7 Structs, tags, and composite literals
+
+- Struct fields and their tags belong on one logical field line and **MUST** be
+  aligned only by the formatter.
+- Struct tags **MUST** be syntactically valid and use exact keys required by the
+  serializer, validator, ORM, or protocol. Formatting cannot detect a misspelled
+  tag key.
+- Nontrivial struct literals SHOULD use keyed fields.
+- Multiline literals SHOULD use one logical element or field per line.
+- Small, obvious literals MAY remain on one line when that is clearer.
+- Do not require exhaustive fields when zero values are part of the intended
+  contract. Conversely, do not omit a field whose zero value would hide missing
+  configuration.
+- Nested literals SHOULD be formatted for visible ownership, not compressed to
+  minimize line count.
+
+### 18.8 Naming, receivers, and comments
+
+- New names **MUST** use Go initialisms consistently: `ID`, `URL`, `HTTP`, `JSON`,
+  `API`, and `DTO`, not `Id`, `Url`, or mixed variants.
+- Package names **MUST** be lowercase single words without underscores or mixed
+  capitals. Preserve incompatible legacy names until an authorized migration.
+- Receiver names SHOULD be one or two letters derived from the type, remain
+  stable across that type's methods, and never be `this` or `self`.
+- Pointer receivers are required for mutation, synchronization-bearing values,
+  identity, or expensive copies. Receiver kind SHOULD remain consistent for a
+  type; pointer receivers are not a universal style requirement.
+- Comments on exported APIs SHOULD explain contracts, invariants, side effects,
+  concurrency, or ownership and begin with the declared name.
+- Do not add comments that merely repeat syntax. Remove commented-out code;
+  version control already preserves history.
+- Comments and identifiers **MUST** use English unless a public protocol or
+  domain contract requires exact text.
+
+### 18.9 Generated files and static analysis
+
+- Generated files **MUST** contain the standard generated-code marker and be
+  regenerated through a documented, reproducible command.
+- Generated files **MUST NOT** be hand-edited.
+- Formatter and linter exclusions **MUST** match the actual generated output
+  paths and use the narrowest scope possible.
+- Build constraints **MUST** use current syntax and remain valid for every
+  intended target.
+- The agent **MUST** run `go vet` on affected packages and SHOULD run the
+  configured maintained linter.
+- Linter findings **MUST** be fixed or explicitly explained. Disabling a check
+  requires a narrow, documented reason at the smallest practical scope.
+- Local hooks are developer convenience, not repository enforcement. CI SHOULD
+  verify formatting, imports, vet, lint, tests, and relevant command builds.
 
 Typical commands are:
 
 ```bash
-gofmt -w <changed-go-files>
+gofmt -s -w <changed-go-files>
+goimports -w <changed-go-files> # when configured; use repository-required flags
 go test ./path/to/affected/package/...
 go vet ./path/to/affected/package/...
+```
+
+Typical non-mutating CI checks are:
+
+```bash
+test -z "$(gofmt -l .)"
+test -z "$(goimports -l .)" # when configured; use repository-required flags
+go vet ./...
+golangci-lint run ./... # when configured and pinned
 ```
 
 ## 19. Build, Test, and Race Verification
