@@ -3,11 +3,15 @@ package app
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"puasa-sunnah/internal/config"
 )
@@ -356,6 +360,43 @@ func TestAPI(t *testing.T) {
 			t.Fatalf("Swagger UI status/title invalid: status=%d", response.StatusCode)
 		}
 	})
+}
+
+func TestErrorHandling(t *testing.T) {
+	t.Parallel()
+
+	server := fiber.New(fiber.Config{ErrorHandler: errorHandler})
+	server.Use(accessLog, recover.New())
+	server.Get("/api/:language/internal", func(*fiber.Ctx) error { return errors.New("secret detail") })
+	server.Get("/api/:language/panic", func(*fiber.Ctx) error { panic("boom") })
+
+	tests := []struct {
+		path       string
+		wantStatus int
+		wantText   string
+	}{
+		{"/api/en/internal", http.StatusInternalServerError, "internal server error"},
+		{"/api/id/internal", http.StatusInternalServerError, "kesalahan internal server"},
+		{"/api/en/panic", http.StatusInternalServerError, "internal server error"},
+	}
+	for _, tt := range tests {
+		request, err := http.NewRequest(http.MethodGet, tt.path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := server.Test(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(response.Body)
+		_ = response.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.StatusCode != tt.wantStatus || !strings.Contains(string(body), tt.wantText) || strings.Contains(string(body), "secret") {
+			t.Errorf("GET %s status/body = %d/%s", tt.path, response.StatusCode, body)
+		}
+	}
 }
 
 func TestOversizedBodyKeepsServerAlive(t *testing.T) {

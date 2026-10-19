@@ -3,11 +3,13 @@ package app
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
 
 	"puasa-sunnah/internal/config"
 	fastinghttp "puasa-sunnah/internal/domains/fasting/delivery/http"
@@ -33,7 +35,11 @@ func New(cfg config.Config) (*fiber.App, error) {
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	})
-	server.Use(recover.New())
+	server.Use(
+		requestid.New(),
+		accessLog,
+		recover.New(recover.Config{EnableStackTrace: true}),
+	)
 
 	server.Get("/health", health(cfg.AppName))
 	swaggerhttp.Register(server)
@@ -66,6 +72,28 @@ func health(serviceName string) fiber.Handler {
 	}
 }
 
+// accessLog renders handler errors itself so the logged status is the one sent.
+func accessLog(c *fiber.Ctx) error {
+	start := time.Now()
+
+	if err := c.Next(); err != nil {
+		if handlerErr := c.App().Config().ErrorHandler(c, err); handlerErr != nil {
+			slog.Error("render error response", "request_id", c.Locals("requestid"), "error", handlerErr)
+			_ = c.SendStatus(fiber.StatusInternalServerError)
+		}
+	}
+
+	slog.Info(
+		"http request",
+		"request_id", c.Locals("requestid"),
+		"method", c.Method(),
+		"route", c.Route().Path,
+		"status", c.Response().StatusCode(),
+		"latency", time.Since(start),
+	)
+	return nil
+}
+
 func errorHandler(c *fiber.Ctx, err error) error {
 	// Fiber also calls this for requests rejected before routing (oversized
 	// body, malformed headers); c.Params panics there, so read the path.
@@ -80,6 +108,17 @@ func errorHandler(c *fiber.Ctx, err error) error {
 	if errors.As(err, &fiberError) {
 		status = fiberError.Code
 		message = fiberError.Message
+	}
+
+	if status >= fiber.StatusInternalServerError {
+		slog.Error(
+			"request failed",
+			"request_id", c.Locals("requestid"),
+			"method", c.Method(),
+			"route", c.Route().Path,
+			"status", status,
+			"error", err,
+		)
 	}
 
 	return c.Status(status).JSON(fiber.Map{
