@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -58,9 +59,12 @@ func health(serviceName string) fiber.Handler {
 }
 
 func errorHandler(c *fiber.Ctx, err error) error {
+	// Fiber also calls this for requests rejected before routing (oversized
+	// body, malformed headers); c.Params panics there, so read the path.
+	isIndonesian := strings.HasPrefix(c.Path(), "/api/id/")
 	status := fiber.StatusInternalServerError
 	message := "internal server error"
-	if c.Params("language") == "id" {
+	if isIndonesian {
 		message = "kesalahan internal server"
 	}
 

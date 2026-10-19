@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/gofiber/fiber/v2"
 
 	"puasa-sunnah/internal/config"
 )
@@ -355,4 +358,36 @@ func TestAPI(t *testing.T) {
 			t.Fatalf("Swagger UI status/title invalid: status=%d", response.StatusCode)
 		}
 	})
+}
+
+func TestOversizedBodyKeepsServerAlive(t *testing.T) {
+	t.Parallel()
+
+	server, err := New(config.Config{AppName: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = server.Listener(listener) }()
+	t.Cleanup(func() { _ = server.Shutdown() })
+	baseURL := "http://" + listener.Addr().String()
+
+	body := strings.NewReader(`{"date":"` + strings.Repeat("a", fiber.DefaultBodyLimit) + `"}`)
+	response, err := http.Post(baseURL+"/api/id/fasting/classify", "application/json", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("oversized body status = %d, want %d", response.StatusCode, http.StatusRequestEntityTooLarge)
+	}
+
+	response, err = http.Get(baseURL + "/health")
+	if err != nil {
+		t.Fatalf("server died after oversized body: %v", err)
+	}
+	_ = response.Body.Close()
 }
