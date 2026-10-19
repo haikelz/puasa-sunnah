@@ -253,6 +253,16 @@ go vet ./...
 go build -o bin/api ./cmd/api
 ```
 
+## Docker
+
+```bash
+cp .env.example .env
+docker network create shared-network   # once; compose expects this external network
+docker compose up --build
+```
+
+`PORT` in `.env` picks the host port. Inside the container the API always listens on 8080, and the health check calls `/health` with busybox `wget`. Pushes to `master` run `.github/workflows/build.yaml`, which tests the code and then publishes the image to GitHub Container Registry.
+
 ## Vercel deployment
 
 The API is deployed with [Vercel's Go runtime](https://vercel.com/docs/functions/runtimes/go). Vercel detects the root `go.mod` and `cmd/api/main.go`, builds the Fiber server, provides its runtime `PORT`, and serves the process as a Vercel Function. No Docker container or long-lived local filesystem is required.
