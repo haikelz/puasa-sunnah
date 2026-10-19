@@ -76,7 +76,6 @@ func (c *KemenagCalendar) Source() fasting.CalendarSource {
 		CoverageStart: coverageStart.Format(time.DateOnly),
 		CoverageEnd:   coverageEnd.Format(time.DateOnly),
 		Status:        "published_planning_calendar",
-		Caveat:        "For worship, Ramadan, Shawwal, and Dhu al-Hijjah dates can be superseded by an official Kemenag Sidang Isbat decision.",
 	}
 }
 

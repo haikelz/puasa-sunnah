@@ -48,6 +48,5 @@ func (c *UmmAlQuraCalendar) Source() fasting.CalendarSource {
 		CoverageStart: ummAlQuraCoverageStart,
 		CoverageEnd:   ummAlQuraCoverageEnd,
 		Status:        "calculated_planning_calendar",
-		Caveat:        "Umm al-Qura is Saudi Arabia's civil calendar and can differ from calendars accepted by other authorities and localities.",
 	}
 }
