@@ -1,0 +1,62 @@
+name: Kemenag calendar watch
+on:
+  schedule:
+    # Mondays 01:00 UTC (08:00 WIB).
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      # Detection only. Elipski gates the PDF behind a visitor-data form, and the
+      # printed grid needs human reading, so a person transcribes the new year.
+      - name: Look for the next Kalender Hijriah Indonesia
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          data=internal/domains/fasting/repository/kemenag
+          next=$(( $(jq -r .year "$data"/*.json | sort -n | tail -1) + 1 ))
+          coverage_end=$(jq -r .coverage_end "$data"/*.json | sort | tail -1)
+          days_left=$(( ( $(date -d "$coverage_end" +%s) - $(date +%s) ) / 86400 ))
+          echo "next=$next coverage_end=$coverage_end days_left=$days_left"
+
+          listing=$(curl -fsSL --retry 3 https://simbi.kemenag.go.id/eliterasi/ https://simbi.kemenag.go.id/eliterasi/portal-web/buku-digital)
+          page=$(grep -oE "https://simbi\.kemenag\.go\.id/eliterasi/portal-web/buku-digital/kalender-hijriah-indonesia-(tahun-)?${next}(-[a-z0-9-]+)?" <<<"$listing" | head -1 || true)
+
+          open_issue() {
+            title=$1
+            body=$2
+            existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq length)
+            if [ "$existing" -gt 0 ]; then
+              echo "Issue already open: $title"
+              return
+            fi
+            gh issue create --title "$title" --body "$body"
+          }
+
+          if [ -n "$page" ]; then
+            open_issue "Transcribe Kemenag calendar $next" "Kemenag published Kalender Hijriah Indonesia $next: $page
+
+          The current data ends $coverage_end ($days_left days from now).
+
+          - [ ] Download the PDF (Elipski asks for visitor details; a regional kemenag.go.id copy also works) and record its SHA-256.
+          - [ ] Add \`$data/$next.json\` with every month start, including the month already in progress on 1 January.
+          - [ ] Add boundary tests for the year's transitions, Ramadan, Syawal, and Zulhijah.
+          - [ ] Run \`go test ./...\` and update README coverage dates.
+          - [ ] Sidang Isbat can still move Ramadan, Syawal, and Zulhijah; record any later decision in a follow-up PR."
+          elif [ "$days_left" -le 60 ]; then
+            open_issue "Kemenag calendar $next not yet published" "No Kalender Hijriah Indonesia $next appears on Elipski yet, and the \`calendar=id\` data ends $coverage_end ($days_left days from now). After that date, schedules return 422 unless callers pick \`calendar=umm-al-qura\`.
+
+          Check https://simbi.kemenag.go.id/eliterasi/ and https://bimasislam.kemenag.go.id/ by hand."
+          else
+            echo "No $next calendar yet; $days_left days of coverage left."
+          fi

@@ -66,7 +66,7 @@ Core rules and references are documented in `README.md` and returned by `GET /ap
 - Umm al-Qura is a Saudi civil/planning calendar. Preserve its data provenance, supported range, planning status, and warning that other accepted authorities and localities can differ.
 - Every schedule response must expose source URL, publisher, coverage, planning status, and a source-appropriate caveat. Indonesian calendar responses must state that Sidang Isbat can supersede Ramadan, Shawwal, or Dhu al-Hijjah planning dates.
 - Weeks are Monday–Sunday. Months and years use Gregorian boundaries in `Asia/Jakarta`.
-- Add a new year only from a Kemenag publication: add `<year>.json` with the PDF URL, SHA-256, coverage, and every month start (including the month in progress on 1 January), add transition tests, verify the full Gregorian year, and update README coverage.
+- Add a new year only from a Kemenag publication: add `<year>.json` with the PDF URL, SHA-256, coverage, and every month start (including the month in progress on 1 January), add transition tests, verify the full Gregorian year, and update README coverage. `.github/workflows/kemenag-calendar.yaml` only opens an issue; never let automation write calendar data.
 - Unsupported ranges must return an explicit error. Do not degrade to a different calendar authority.
 
 ## Vercel deployment constraints
