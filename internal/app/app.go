@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,8 +19,13 @@ import (
 	swaggerhttp "puasa-sunnah/internal/domains/swagger/delivery/http"
 )
 
-// The largest request is a small classify JSON body.
-const bodyLimit = 16 * 1024
+const (
+	// The largest request is a small classify JSON body.
+	bodyLimit = 16 * 1024
+
+	// A full-year schedule computes in milliseconds; the deadline bounds the use-case loop.
+	requestTimeout = 5 * time.Second
+)
 
 type HealthResponse struct {
 	Status  string `json:"status" example:"ok"`
@@ -39,6 +45,7 @@ func New(cfg config.Config) (*fiber.App, error) {
 		requestid.New(),
 		accessLog,
 		recover.New(recover.Config{EnableStackTrace: true}),
+		withRequestTimeout,
 	)
 
 	server.Get("/health", health(cfg.AppName))
@@ -94,6 +101,14 @@ func accessLog(c *fiber.Ctx) error {
 	return nil
 }
 
+func withRequestTimeout(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(c.UserContext(), requestTimeout)
+	defer cancel()
+
+	c.SetUserContext(ctx)
+	return c.Next()
+}
+
 func errorHandler(c *fiber.Ctx, err error) error {
 	// Fiber also calls this for requests rejected before routing (oversized
 	// body, malformed headers); c.Params panics there, so read the path.
@@ -105,9 +120,16 @@ func errorHandler(c *fiber.Ctx, err error) error {
 	}
 
 	var fiberError *fiber.Error
-	if errors.As(err, &fiberError) {
+	switch {
+	case errors.As(err, &fiberError):
 		status = fiberError.Code
 		message = fiberError.Message
+	case errors.Is(err, context.DeadlineExceeded):
+		status = fiber.StatusServiceUnavailable
+		message = "request timed out"
+		if isIndonesian {
+			message = "permintaan melebihi batas waktu"
+		}
 	}
 
 	if status >= fiber.StatusInternalServerError {

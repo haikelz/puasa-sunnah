@@ -73,6 +73,7 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 // @Success 200 {object} ScheduleResponse
 // @Failure 400 {object} ErrorResponse "Invalid query"
 // @Failure 422 {object} ErrorResponse "Calendar does not cover the requested range"
+// @Failure 503 {object} ErrorResponse "Request timed out"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/schedules [get]
 func (h *Handler) schedule(c *fiber.Ctx) error {

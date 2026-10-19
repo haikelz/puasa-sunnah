@@ -84,6 +84,7 @@ GET /api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura
 - `date` is an optional anchor in `YYYY-MM-DD`; it defaults to today in `Asia/Jakarta`.
 - `calendar` is optional and must be `id` or `umm-al-qura`; it defaults to `id`.
 - `types` optionally filters by comma-separated recommendation keys: `monday_thursday`, `white_days`, `ashura`, `six_shawwal_candidate`, `first_nine_dhul_hijjah`, or `arafah`. Matching is OR; only matching recommendations are returned, with overlapping dates deduplicated. Omitted/empty means all; unsupported keys return `400`.
+- Requests that exceed the 5-second deadline return `503`. Every response carries an `X-Request-ID` header that matches the server log entry.
 - `format=json|ics` defaults to JSON. `ics` downloads an RFC 5545 calendar with one all-day event per matching date, localized titles, source URL, caveat, and disclaimer. Empty schedules export a valid calendar without events. Import into Google Calendar, Apple Calendar, or Outlook; this is a snapshot, not an automatic subscription or notification service.
 - Weeks run Monday through Sunday. Month and year use Gregorian boundaries.
 - Add `is_pilgrim_at_arafah=true` for the Arafah-specific pilgrim context.

@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -366,8 +367,14 @@ func TestErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	server := fiber.New(fiber.Config{ErrorHandler: errorHandler})
-	server.Use(accessLog, recover.New())
+	server.Use(accessLog, recover.New(), withRequestTimeout)
 	server.Get("/api/:language/internal", func(*fiber.Ctx) error { return errors.New("secret detail") })
+	server.Get("/api/:language/timeout", func(c *fiber.Ctx) error {
+		if _, ok := c.UserContext().Deadline(); !ok {
+			return errors.New("request context has no deadline")
+		}
+		return context.DeadlineExceeded
+	})
 	server.Get("/api/:language/panic", func(*fiber.Ctx) error { panic("boom") })
 
 	tests := []struct {
@@ -378,6 +385,7 @@ func TestErrorHandling(t *testing.T) {
 		{"/api/en/internal", http.StatusInternalServerError, "internal server error"},
 		{"/api/id/internal", http.StatusInternalServerError, "kesalahan internal server"},
 		{"/api/en/panic", http.StatusInternalServerError, "internal server error"},
+		{"/api/id/timeout", http.StatusServiceUnavailable, "permintaan melebihi batas waktu"},
 	}
 	for _, tt := range tests {
 		request, err := http.NewRequest(http.MethodGet, tt.path, nil)

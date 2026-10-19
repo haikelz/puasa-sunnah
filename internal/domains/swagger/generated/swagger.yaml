@@ -378,6 +378,10 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/http.ErrorResponse'
+        "503":
+          description: Request timed out
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
       summary: Get a fasting schedule
       tags:
       - Fasting
