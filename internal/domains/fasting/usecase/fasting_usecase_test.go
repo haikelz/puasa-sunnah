@@ -93,8 +93,6 @@ func TestNewFastingUsecaseRequiresCalendars(t *testing.T) {
 
 	indonesiaCalendar := fastingrepository.NewKemenagCalendar()
 	ummAlQuraCalendar := fastingrepository.NewUmmAlQuraCalendar()
-	var nilIndonesiaCalendar *fastingrepository.KemenagCalendar
-	var nilUmmAlQuraCalendar *fastingrepository.UmmAlQuraCalendar
 	tests := []struct {
 		name      string
 		indonesia fasting.CalendarRepository
@@ -102,9 +100,7 @@ func TestNewFastingUsecaseRequiresCalendars(t *testing.T) {
 		want      error
 	}{
 		{name: "nil Indonesia calendar", ummAlQura: ummAlQuraCalendar, want: errIndonesiaCalendarRequired},
-		{name: "typed nil Indonesia calendar", indonesia: nilIndonesiaCalendar, ummAlQura: ummAlQuraCalendar, want: errIndonesiaCalendarRequired},
 		{name: "nil Umm al-Qura calendar", indonesia: indonesiaCalendar, want: errUmmAlQuraCalendarRequired},
-		{name: "typed nil Umm al-Qura calendar", indonesia: indonesiaCalendar, ummAlQura: nilUmmAlQuraCalendar, want: errUmmAlQuraCalendarRequired},
 	}
 
 	for _, tt := range tests {
