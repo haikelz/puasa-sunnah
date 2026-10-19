@@ -48,8 +48,8 @@ func TestScheduleMonthIncludesWhiteDaysAndOverlaps(t *testing.T) {
 	if len(got.Dates[8].Recommendations) != 2 {
 		t.Errorf("August 27 recommendation count = %d, want Monday/Thursday plus White Days", len(got.Dates[8].Recommendations))
 	}
-	if got.CalendarSource.ID != "kemenag-ri-2026" {
-		t.Errorf("calendar source = %q, want kemenag-ri-2026", got.CalendarSource.ID)
+	if got.CalendarSource.ID != "kemenag-ri" || len(got.CalendarSource.Publications) != 1 || got.CalendarSource.Publications[0].ID != "kemenag-ri-2026" {
+		t.Errorf("calendar source = %q %+v, want kemenag-ri with the 2026 publication", got.CalendarSource.ID, got.CalendarSource.Publications)
 	}
 }
 
@@ -73,12 +73,53 @@ func TestScheduleYearSuppressesRestrictedDates(t *testing.T) {
 	}
 }
 
+func TestScheduleIndonesia2027(t *testing.T) {
+	t.Parallel()
+
+	for _, language := range []fasting.Language{fasting.LanguageEnglish, fasting.LanguageIndonesian} {
+		got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
+			Period:   fasting.SchedulePeriodYear,
+			Date:     "2027-08-09",
+			Language: language,
+		})
+		if err != nil {
+			t.Fatalf("%s Schedule() error = %v", language, err)
+		}
+		if got.CalendarSource.Publications[0].ID != "kemenag-ri-2027" {
+			t.Errorf("%s publications = %+v, want kemenag-ri-2027", language, got.CalendarSource.Publications)
+		}
+		// Arafah 9 Zulhijah 1448, Ashura 10 Muharam 1449, Ayyamul Bidh 13 Syaban 1448.
+		for _, recommended := range []string{"2027-05-16", "2027-06-15", "2027-01-21"} {
+			if !hasScheduleDate(got.Dates, recommended) {
+				t.Errorf("%s 2027 schedule is missing %s", language, recommended)
+			}
+		}
+		// Ramadan Monday, Idulfitri, Iduladha, and Tasyrik.
+		for _, prohibited := range []string{"2027-02-08", "2027-03-10", "2027-05-17", "2027-05-18", "2027-05-19", "2027-05-20"} {
+			if hasScheduleDate(got.Dates, prohibited) {
+				t.Errorf("%s 2027 schedule contains %s", language, prohibited)
+			}
+		}
+	}
+
+	week, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
+		Period: fasting.SchedulePeriodWeek,
+		Date:   "2026-12-31",
+	})
+	if err != nil {
+		t.Fatalf("cross-year week Schedule() error = %v", err)
+	}
+	if len(week.CalendarSource.Publications) != 2 {
+		t.Errorf("cross-year week publications = %+v, want 2026 and 2027", week.CalendarSource.Publications)
+	}
+}
+
 func TestScheduleRejectsUnsupportedYear(t *testing.T) {
 	t.Parallel()
 
 	_, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
 		Period: fasting.SchedulePeriodYear,
-		Date:   "2027-08-09",
+		Date:   "2028-08-09",
 	})
 	if !errors.Is(err, fasting.ErrCalendarUnavailable) {
 		t.Fatalf("Schedule() error = %v, want ErrCalendarUnavailable", err)

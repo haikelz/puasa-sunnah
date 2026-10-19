@@ -30,12 +30,15 @@ func scheduleICS(schedule fasting.Schedule) string {
 	line("VERSION:2.0")
 	line("PRODID:-//Puasa Sunnah API//Fasting Schedule//EN")
 	line("CALSCALE:GREGORIAN")
-	sourceDescription := strings.Join([]string{
-		schedule.CalendarSource.Name, schedule.CalendarSource.Publisher,
-		schedule.CalendarSource.URL, schedule.CalendarSource.Status,
-		schedule.CalendarSource.CoverageStart + " — " + schedule.CalendarSource.CoverageEnd,
-		schedule.CalendarSource.Caveat, schedule.Disclaimer,
-	}, "\n")
+	sourceLines := []string{schedule.CalendarSource.Name, schedule.CalendarSource.Publisher}
+	for _, publication := range schedule.CalendarSource.Publications {
+		sourceLines = append(sourceLines, publication.Name+": "+publication.URL)
+	}
+	sourceDescription := strings.Join(append(sourceLines,
+		schedule.CalendarSource.Status,
+		schedule.CalendarSource.Caveat,
+		schedule.Disclaimer,
+	), "\n")
 	line("X-WR-CALDESC:" + calendarText(sourceDescription))
 	stamp := time.Now().UTC().Format("20060102T150405Z")
 	for _, date := range schedule.Dates {

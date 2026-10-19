@@ -34,7 +34,7 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 		return fasting.Schedule{}, err
 	}
 
-	calendarSource := calendar.Source()
+	calendarSource := calendar.Source(start, end)
 	calendarSource.Caveat = calendarCaveat(request.Language, calendarID)
 	result := fasting.Schedule{
 		Period:         request.Period,
@@ -62,10 +62,9 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request fasting.ScheduleR
 		hijri, err := calendar.HijriDate(ctx, current)
 		if err != nil {
 			if errors.Is(err, fasting.ErrDateOutsideCalendar) {
-				source := calendar.Source()
 				return fasting.Schedule{}, fmt.Errorf("%w: %s", fasting.ErrCalendarUnavailable, text(request.Language,
-					fmt.Sprintf("calendar covers %s through %s", source.CoverageStart, source.CoverageEnd),
-					fmt.Sprintf("kalender hanya mencakup %s sampai %s", source.CoverageStart, source.CoverageEnd),
+					fmt.Sprintf("calendar covers %s through %s", calendarSource.CoverageStart, calendarSource.CoverageEnd),
+					fmt.Sprintf("kalender hanya mencakup %s sampai %s", calendarSource.CoverageStart, calendarSource.CoverageEnd),
 				))
 			}
 			return fasting.Schedule{}, err

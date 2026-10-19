@@ -204,17 +204,74 @@ func (c *KemenagCalendar) HijriDate(ctx context.Context, value time.Time) (fasti
 	return fasting.HijriDate{}, fmt.Errorf("%w: no Kemenag month boundary for %s", fasting.ErrDateOutsideCalendar, value.Format(time.DateOnly))
 }
 
-func (c *KemenagCalendar) Source() fasting.CalendarSource {
-	latest := c.publications[len(c.publications)-1]
-	return fasting.CalendarSource{
-		ID:            latest.ID,
-		Name:          latest.Name,
+func (c *KemenagCalendar) Source(start, end time.Time) fasting.CalendarSource {
+	start = date(start.Year(), start.Month(), start.Day())
+	end = date(end.Year(), end.Month(), end.Day())
+
+	publications := make([]fasting.CalendarPublication, 0, 2)
+	seen := make(map[string]bool)
+	for year := start.Year(); year <= end.Year(); year++ {
+		publication, ok := c.publicationFor(year, start, end)
+		if !ok || seen[publication.ID] {
+			continue
+		}
+		seen[publication.ID] = true
+		publications = append(publications, fasting.CalendarPublication{
+			ID:            publication.ID,
+			Name:          publication.Name,
+			URL:           publication.URL,
+			CoverageStart: publication.CoverageStart,
+			CoverageEnd:   publication.CoverageEnd,
+		})
+	}
+
+	source := fasting.CalendarSource{
+		ID:            "kemenag-ri",
+		Name:          "Kalender Hijriah Indonesia",
 		Publisher:     "Ditjen Bimbingan Masyarakat Islam, Kementerian Agama RI",
-		URL:           latest.URL,
+		URL:           c.publications[len(c.publications)-1].URL,
 		CoverageStart: c.coverageStart.Format(time.DateOnly),
 		CoverageEnd:   c.coverageEnd.Format(time.DateOnly),
 		Status:        "published_planning_calendar",
+		Publications:  publications,
 	}
+	if len(publications) > 0 {
+		source.URL = publications[0].URL
+	}
+	return source
+}
+
+// publicationFor prefers the PDF published for that Gregorian year; a
+// neighbouring year's PDF only answers for its few spill-over days.
+func (c *KemenagCalendar) publicationFor(year int, start, end time.Time) (kemenagPublication, bool) {
+	for _, publication := range c.publications {
+		if publication.Year == year {
+			return publication, true
+		}
+	}
+
+	yearStart := maxTime(start, date(year, time.January, 1))
+	yearEnd := minTime(end, date(year, time.December, 31))
+	for _, publication := range c.publications {
+		if !publication.coverageStart.After(yearEnd) && !publication.coverageEnd.Before(yearStart) {
+			return publication, true
+		}
+	}
+	return kemenagPublication{}, false
+}
+
+func maxTime(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
+func minTime(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
 }
 
 func daysBetween(from, to time.Time) int {

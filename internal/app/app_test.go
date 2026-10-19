@@ -185,15 +185,19 @@ func TestAPI(t *testing.T) {
 				Calendar       string `json:"calendar"`
 				Total          int    `json:"total"`
 				CalendarSource struct {
-					ID string `json:"id"`
+					ID           string `json:"id"`
+					Publications []struct {
+						ID string `json:"id"`
+					} `json:"publications"`
 				} `json:"calendar_source"`
 			} `json:"data"`
 		}
 		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 			t.Fatal(err)
 		}
-		if payload.Data.Calendar != "id" || payload.Data.Total != 11 || payload.Data.CalendarSource.ID != "kemenag-ri-2026" {
-			t.Fatalf("schedule calendar/total/source = %q/%d/%q, want id/11/kemenag-ri-2026", payload.Data.Calendar, payload.Data.Total, payload.Data.CalendarSource.ID)
+		source := payload.Data.CalendarSource
+		if payload.Data.Calendar != "id" || payload.Data.Total != 11 || source.ID != "kemenag-ri" || len(source.Publications) != 1 || source.Publications[0].ID != "kemenag-ri-2026" {
+			t.Fatalf("schedule calendar/total/source = %q/%d/%+v, want id/11/kemenag-ri-2026", payload.Data.Calendar, payload.Data.Total, source)
 		}
 	})
 
@@ -311,7 +315,8 @@ func TestAPI(t *testing.T) {
 		}{
 			{"/api/id/fasting/schedules?period=decade&date=2026-08-09", http.StatusBadRequest, "period harus bernilai"},
 			{"/api/id/fasting/schedules?period=year&date=2026-08-09&calendar=other", http.StatusBadRequest, "calendar harus bernilai"},
-			{"/api/id/fasting/schedules?period=year&date=2027-08-09", http.StatusUnprocessableEntity, "kalender hanya mencakup"},
+			{"/api/id/fasting/schedules?period=year&date=2028-08-09", http.StatusUnprocessableEntity, "kalender hanya mencakup 2025-12-28 sampai 2027-12-31"},
+			{"/api/id/fasting/schedules?period=year&date=2027-08-09", http.StatusOK, "kemenag-ri-2027"},
 		}
 		for _, tt := range tests {
 			request, err := http.NewRequest(http.MethodGet, tt.path, nil)

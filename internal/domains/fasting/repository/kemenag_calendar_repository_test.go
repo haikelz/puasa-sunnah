@@ -36,6 +36,18 @@ func TestKemenagCalendarHijriDate(t *testing.T) {
 		{date: "2026-08-09", want: fasting.HijriDate{Year: 1448, Month: 2, Day: 25}},
 		{date: "2026-08-14", want: fasting.HijriDate{Year: 1448, Month: 3, Day: 1}},
 		{date: "2026-12-31", want: fasting.HijriDate{Year: 1448, Month: 7, Day: 22}},
+		// Kalender Hijriah Indonesia Tahun 2027, read from the printed grid.
+		{date: "2027-01-01", want: fasting.HijriDate{Year: 1448, Month: 7, Day: 23}},
+		{date: "2027-01-08", want: fasting.HijriDate{Year: 1448, Month: 7, Day: 30}},
+		{date: "2027-01-09", want: fasting.HijriDate{Year: 1448, Month: 8, Day: 1}},
+		{date: "2027-02-08", want: fasting.HijriDate{Year: 1448, Month: 9, Day: 1}},
+		{date: "2027-03-09", want: fasting.HijriDate{Year: 1448, Month: 9, Day: 30}},
+		{date: "2027-03-10", want: fasting.HijriDate{Year: 1448, Month: 10, Day: 1}},
+		{date: "2027-05-17", want: fasting.HijriDate{Year: 1448, Month: 12, Day: 10}},
+		{date: "2027-06-06", want: fasting.HijriDate{Year: 1449, Month: 1, Day: 1}},
+		{date: "2027-08-15", want: fasting.HijriDate{Year: 1449, Month: 3, Day: 12}},
+		{date: "2027-12-26", want: fasting.HijriDate{Year: 1449, Month: 7, Day: 27}},
+		{date: "2027-12-31", want: fasting.HijriDate{Year: 1449, Month: 8, Day: 3}},
 	}
 
 	calendar := newTestKemenagCalendar(t)
@@ -61,7 +73,7 @@ func TestKemenagCalendarRejectsUnsupportedDate(t *testing.T) {
 	t.Parallel()
 
 	calendar := newTestKemenagCalendar(t)
-	for _, value := range []time.Time{date(2025, time.December, 27), date(2027, time.January, 3)} {
+	for _, value := range []time.Time{date(2025, time.December, 27), date(2028, time.January, 1)} {
 		_, err := calendar.HijriDate(context.Background(), value)
 		if !errors.Is(err, fasting.ErrDateOutsideCalendar) {
 			t.Errorf("HijriDate(%s) error = %v, want ErrDateOutsideCalendar", value.Format(time.DateOnly), err)
@@ -103,8 +115,36 @@ func TestKemenagCalendarMonthBoundaries(t *testing.T) {
 			t.Errorf("coverage endpoint %s rejected: %v", endpoint.Format(time.DateOnly), err)
 		}
 	}
-	if got := calendar.coverageStart.Format(time.DateOnly) + ".." + calendar.coverageEnd.Format(time.DateOnly); got != "2025-12-28..2027-01-02" {
-		t.Errorf("coverage = %s, want 2025-12-28..2027-01-02", got)
+	if got := calendar.coverageStart.Format(time.DateOnly) + ".." + calendar.coverageEnd.Format(time.DateOnly); got != "2025-12-28..2027-12-31" {
+		t.Errorf("coverage = %s, want 2025-12-28..2027-12-31", got)
+	}
+}
+
+func TestKemenagCalendarSourceNamesPublications(t *testing.T) {
+	t.Parallel()
+
+	calendar := newTestKemenagCalendar(t)
+	tests := []struct {
+		start, end time.Time
+		want       []string
+	}{
+		{date(2026, time.August, 1), date(2026, time.August, 31), []string{"kemenag-ri-2026"}},
+		{date(2027, time.January, 1), date(2027, time.December, 31), []string{"kemenag-ri-2027"}},
+		{date(2025, time.December, 29), date(2026, time.January, 4), []string{"kemenag-ri-2026"}},
+		{date(2026, time.December, 28), date(2027, time.January, 3), []string{"kemenag-ri-2026", "kemenag-ri-2027"}},
+	}
+	for _, tt := range tests {
+		source := calendar.Source(tt.start, tt.end)
+		got := make([]string, 0, len(source.Publications))
+		for _, publication := range source.Publications {
+			got = append(got, publication.ID)
+		}
+		if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+			t.Errorf("Source(%s..%s) publications = %v, want %v", tt.start.Format(time.DateOnly), tt.end.Format(time.DateOnly), got, tt.want)
+		}
+		if source.URL != source.Publications[0].URL || source.CoverageEnd != "2027-12-31" {
+			t.Errorf("Source(%s..%s) url/coverage = %s/%s", tt.start.Format(time.DateOnly), tt.end.Format(time.DateOnly), source.URL, source.CoverageEnd)
+		}
 	}
 }
 

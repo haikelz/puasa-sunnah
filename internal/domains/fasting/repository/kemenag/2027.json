@@ -1,0 +1,25 @@
+{
+  "year": 2027,
+  "id": "kemenag-ri-2027",
+  "name": "Kalender Hijriah Indonesia Tahun 2027",
+  "url": "https://aceh.kemenag.go.id/storage/berita_informasi/01M2SQD5A9T6CWP76Y8A4PKB6J.pdf",
+  "sha256": "88c1400caedd9f69bf7bf638ea9e52a247e5e59e4c943cd879708e3c58e0bf04",
+  "coverage_start": "2027-01-01",
+  "coverage_end": "2027-12-31",
+  "month_starts": [
+    { "date": "2026-12-10", "hijri_year": 1448, "hijri_month": 7 },
+    { "date": "2027-01-09", "hijri_year": 1448, "hijri_month": 8 },
+    { "date": "2027-02-08", "hijri_year": 1448, "hijri_month": 9 },
+    { "date": "2027-03-10", "hijri_year": 1448, "hijri_month": 10 },
+    { "date": "2027-04-08", "hijri_year": 1448, "hijri_month": 11 },
+    { "date": "2027-05-08", "hijri_year": 1448, "hijri_month": 12 },
+    { "date": "2027-06-06", "hijri_year": 1449, "hijri_month": 1 },
+    { "date": "2027-07-06", "hijri_year": 1449, "hijri_month": 2 },
+    { "date": "2027-08-04", "hijri_year": 1449, "hijri_month": 3 },
+    { "date": "2027-09-02", "hijri_year": 1449, "hijri_month": 4 },
+    { "date": "2027-10-02", "hijri_year": 1449, "hijri_month": 5 },
+    { "date": "2027-10-31", "hijri_year": 1449, "hijri_month": 6 },
+    { "date": "2027-11-30", "hijri_year": 1449, "hijri_month": 7 },
+    { "date": "2027-12-29", "hijri_year": 1449, "hijri_month": 8 }
+  ]
+}

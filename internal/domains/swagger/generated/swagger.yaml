@@ -17,6 +17,19 @@ definitions:
     x-enum-varnames:
     - CalendarIndonesia
     - CalendarUmmAlQura
+  fasting.CalendarPublication:
+    properties:
+      coverage_end:
+        type: string
+      coverage_start:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      url:
+        type: string
+    type: object
   fasting.CalendarSource:
     properties:
       caveat:
@@ -29,6 +42,10 @@ definitions:
         type: string
       name:
         type: string
+      publications:
+        items:
+          $ref: '#/definitions/fasting.CalendarPublication'
+        type: array
       publisher:
         type: string
       status:

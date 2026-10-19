@@ -46,10 +46,10 @@ For manual classification, this API uses a transparent two-calendar input:
 
 Schedule generation supports two explicitly selected calendar sources:
 
-- `id` (default) uses the published [Kalender Hijriah Indonesia Tahun 2026](https://aceh.kemenag.go.id/storage/berita_informasi/01K7GE96M0ZVRJ62Z520RMYG1B.pdf) from Ditjen Bimas Islam, Kementerian Agama RI. Its verified month boundaries are transcribed into the service; this is not an automatically extrapolated calculation. Kemenag does not currently expose a documented public calendar API, so coverage is limited to the publication's visible dates from 28 December 2025 through 2 January 2027. Unsupported ranges return HTTP `422`.
+- `id` (default) uses the published Kalender Hijriah Indonesia from Ditjen Bimas Islam, Kementerian Agama RI: [Tahun 2026](https://aceh.kemenag.go.id/storage/berita_informasi/01K7GE96M0ZVRJ62Z520RMYG1B.pdf) and [Tahun 2027](https://aceh.kemenag.go.id/storage/berita_informasi/01M2SQD5A9T6CWP76Y8A4PKB6J.pdf) (also on [Elipski](https://simbi.kemenag.go.id/eliterasi/)). Their month boundaries are transcribed by hand into `internal/domains/fasting/repository/kemenag/<year>.json`, one file per PDF with its SHA-256; this is not an automatically extrapolated calculation. The service refuses to start if the files disagree on a boundary, leave a coverage gap, or contain a month that isn't 29 or 30 days long. Kemenag does not expose a documented public calendar API, so coverage is limited to the publications' visible dates, currently 28 December 2025 through 31 December 2027. Unsupported ranges return HTTP `422`.
 - `umm-al-qura` uses the Saudi Umm al-Qura civil calendar conversion data compiled by [R.H. van Gent](https://webspace.science.uu.nl/~gent0113/islam/ummalqura.htm), covering 14 March 1937 through 16 November 2077. It is a calculated planning calendar, not an Indonesian religious determination, and can differ from dates accepted by local authorities.
 
-Every schedule response identifies the selected calendar, source, publisher, coverage, status, and relevant authority caveat. The API never silently falls back from one calendar to the other. Add later `id` years only after Kemenag publishes the corresponding official calendar and the transcribed month boundaries have tests.
+Every schedule response identifies the selected calendar, source, publisher, coverage, status, and relevant authority caveat. The API never silently falls back from one calendar to the other. `calendar_source.publications` lists the PDFs behind the requested range; a week that crosses New Year cites both years. Add later `id` years only after Kemenag publishes the corresponding official calendar and the transcribed month boundaries have tests.
 
 ## API
 
@@ -120,10 +120,18 @@ The response includes 11 distinct dates: the month's Mondays/Thursdays and 13–
     "timezone": "Asia/Jakarta",
     "calendar": "id",
     "calendar_source": {
-      "id": "kemenag-ri-2026",
+      "id": "kemenag-ri",
       "status": "published_planning_calendar",
       "coverage_start": "2025-12-28",
-      "coverage_end": "2027-01-02"
+      "coverage_end": "2027-12-31",
+      "publications": [
+        {
+          "id": "kemenag-ri-2026",
+          "name": "Kalender Hijriah Indonesia Tahun 2026",
+          "coverage_start": "2025-12-28",
+          "coverage_end": "2027-01-02"
+        }
+      ]
     },
     "total": 11
   }
@@ -198,7 +206,7 @@ cmd/api (process lifecycle)
               └── fasting.Usecase interface
                     └── fasting/usecase (rules and schedule orchestration)
                           └── CalendarRepository
-                                ├── Kemenag Indonesia 2026 adapter
+                                ├── Kemenag Indonesia adapter (one JSON file per published year)
                                 └── Umm al-Qura adapter
 ```
 
@@ -304,7 +312,7 @@ Configuration is loaded and validated once at startup. Domain packages must not 
 
 ## Sources and maintenance rule
 
-The API's evidence URLs are returned by `GET /api/{language}/fasting/rules`. Primary hadith links above are used for traceability. Schedule dates come from either Kemenag's official 2026 PDF or the explicitly requested Umm al-Qura dataset; both retain their source-specific planning caveats. English and Indonesian labels summarize rules and are not substitutes for the Arabic texts or scholarly explanation.
+The API's evidence URLs are returned by `GET /api/{language}/fasting/rules`. Primary hadith links above are used for traceability. Schedule dates come from either Kemenag's official yearly PDFs or the explicitly requested Umm al-Qura dataset; both retain their source-specific planning caveats. English and Indonesian labels summarize rules and are not substitutes for the Arabic texts or scholarly explanation.
 
 When changing a religious rule:
 

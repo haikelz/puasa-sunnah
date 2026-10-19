@@ -280,6 +280,26 @@ const docTemplate = `{
                 "CalendarUmmAlQura"
             ]
         },
+        "fasting.CalendarPublication": {
+            "type": "object",
+            "properties": {
+                "coverage_end": {
+                    "type": "string"
+                },
+                "coverage_start": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "fasting.CalendarSource": {
             "type": "object",
             "properties": {
@@ -297,6 +317,12 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "publications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.CalendarPublication"
+                    }
                 },
                 "publisher": {
                     "type": "string"

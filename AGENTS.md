@@ -60,13 +60,13 @@ Core rules and references are documented in `README.md` and returned by `GET /ap
 
 ## Calendar data
 
-- Schedule generation uses the official `Kalender Hijriah Indonesia Tahun 2026` PDF from Ditjen Bimas Islam. There is no documented public Kemenag calendar API; do not claim one exists.
-- `internal/domains/fasting/repository/kemenag_calendar_repository.go` is intentionally year-bounded. Never extrapolate its month lengths or label a generic MABIMS calculation as official Kemenag data.
+- Schedule generation uses the official yearly `Kalender Hijriah Indonesia` PDFs from Ditjen Bimas Islam, transcribed into `internal/domains/fasting/repository/kemenag/<year>.json`. There is no documented public Kemenag calendar API; do not claim one exists.
+- The Kemenag repository is bounded by the transcribed years. Never extrapolate month lengths or label a generic MABIMS calculation as official Kemenag data.
 - Schedule callers may explicitly select `calendar=id|umm-al-qura`; omitted values default to `id`. Never silently fall back from one source to the other.
 - Umm al-Qura is a Saudi civil/planning calendar. Preserve its data provenance, supported range, planning status, and warning that other accepted authorities and localities can differ.
 - Every schedule response must expose source URL, publisher, coverage, planning status, and a source-appropriate caveat. Indonesian calendar responses must state that Sidang Isbat can supersede Ramadan, Shawwal, or Dhu al-Hijjah planning dates.
 - Weeks are Monday–Sunday. Months and years use Gregorian boundaries in `Asia/Jakarta`.
-- Add a new year only from a Kemenag publication. Transcribe every month boundary, add transition tests, verify the full Gregorian year, and update source metadata/coverage.
+- Add a new year only from a Kemenag publication: add `<year>.json` with the PDF URL, SHA-256, coverage, and every month start (including the month in progress on 1 January), add transition tests, verify the full Gregorian year, and update README coverage.
 - Unsupported ranges must return an explicit error. Do not degrade to a different calendar authority.
 
 ## Vercel deployment constraints

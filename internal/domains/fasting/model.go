@@ -106,13 +106,24 @@ type ScheduleDate struct {
 	Notes           []string     `json:"notes"`
 }
 
+// CalendarSource describes a calendar series. CoverageStart and CoverageEnd span
+// every supported date; Publications lists the documents behind the requested range.
 type CalendarSource struct {
+	ID            string                `json:"id"`
+	Name          string                `json:"name"`
+	Publisher     string                `json:"publisher"`
+	URL           string                `json:"url"`
+	CoverageStart string                `json:"coverage_start"`
+	CoverageEnd   string                `json:"coverage_end"`
+	Status        string                `json:"status"`
+	Caveat        string                `json:"caveat"`
+	Publications  []CalendarPublication `json:"publications"`
+}
+
+type CalendarPublication struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
-	Publisher     string `json:"publisher"`
 	URL           string `json:"url"`
 	CoverageStart string `json:"coverage_start"`
 	CoverageEnd   string `json:"coverage_end"`
-	Status        string `json:"status"`
-	Caveat        string `json:"caveat"`
 }

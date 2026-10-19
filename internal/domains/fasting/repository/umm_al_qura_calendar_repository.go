@@ -39,14 +39,28 @@ func (c *UmmAlQuraCalendar) HijriDate(ctx context.Context, value time.Time) (fas
 	}, nil
 }
 
-func (c *UmmAlQuraCalendar) Source() fasting.CalendarSource {
+func (c *UmmAlQuraCalendar) Source(time.Time, time.Time) fasting.CalendarSource {
+	const (
+		name = "Umm al-Qura Calendar"
+		url  = "https://webspace.science.uu.nl/~gent0113/islam/ummalqura.htm"
+	)
+
 	return fasting.CalendarSource{
 		ID:            "umm-al-qura",
-		Name:          "Umm al-Qura Calendar",
+		Name:          name,
 		Publisher:     "KACST calendar; conversion data compiled by R.H. van Gent",
-		URL:           "https://webspace.science.uu.nl/~gent0113/islam/ummalqura.htm",
+		URL:           url,
 		CoverageStart: ummAlQuraCoverageStart,
 		CoverageEnd:   ummAlQuraCoverageEnd,
 		Status:        "calculated_planning_calendar",
+		Publications: []fasting.CalendarPublication{
+			{
+				ID:            "umm-al-qura",
+				Name:          name,
+				URL:           url,
+				CoverageStart: ummAlQuraCoverageStart,
+				CoverageEnd:   ummAlQuraCoverageEnd,
+			},
+		},
 	}
 }
