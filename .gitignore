@@ -6,3 +6,6 @@ node_modules/
 .DS_Store
 tasks/*
 .vercel
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
