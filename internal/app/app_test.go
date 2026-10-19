@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
-
 	"puasa-sunnah/internal/config"
 )
 
@@ -375,7 +373,7 @@ func TestOversizedBodyKeepsServerAlive(t *testing.T) {
 	t.Cleanup(func() { _ = server.Shutdown() })
 	baseURL := "http://" + listener.Addr().String()
 
-	body := strings.NewReader(`{"date":"` + strings.Repeat("a", fiber.DefaultBodyLimit) + `"}`)
+	body := strings.NewReader(`{"date":"` + strings.Repeat("a", bodyLimit) + `"}`)
 	response, err := http.Post(baseURL+"/api/id/fasting/classify", "application/json", body)
 	if err != nil {
 		t.Fatal(err)

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -15,6 +16,9 @@ import (
 	swaggerhttp "puasa-sunnah/internal/domains/swagger/delivery/http"
 )
 
+// The largest request is a small classify JSON body.
+const bodyLimit = 16 * 1024
+
 type HealthResponse struct {
 	Status  string `json:"status" example:"ok"`
 	Service string `json:"service" example:"puasa-sunnah-api"`
@@ -24,6 +28,10 @@ func New(cfg config.Config) (*fiber.App, error) {
 	server := fiber.New(fiber.Config{
 		AppName:      cfg.AppName,
 		ErrorHandler: errorHandler,
+		BodyLimit:    bodyLimit,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	})
 	server.Use(recover.New())
 
