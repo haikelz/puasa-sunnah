@@ -70,6 +70,8 @@ GET /api/id/fasting/rules
 
 Returns calculations, evidence links, and caveats, including rules that cannot be determined from one stateless request.
 
+Rule keys for fixed-date recommendations match the recommendation keys that schedules emit and the `types` filter accepts.
+
 ### Get a weekly, monthly, or yearly schedule
 
 ```http

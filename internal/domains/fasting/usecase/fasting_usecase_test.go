@@ -128,3 +128,21 @@ func assertKeys(t *testing.T, occurrences []fasting.Occurrence, want []string) {
 		}
 	}
 }
+
+func TestRulesExposeFilterKeysInBothLanguages(t *testing.T) {
+	t.Parallel()
+
+	service := newCalendarUsecase(t)
+
+	for _, language := range []fasting.Language{fasting.LanguageEnglish, fasting.LanguageIndonesian} {
+		rules := make(map[string]fasting.Rule)
+		for _, rule := range service.Rules(context.Background(), language) {
+			rules[rule.Key] = rule
+		}
+		for _, key := range []string{"monday_thursday", "white_days", "ashura", "six_shawwal_candidate", "first_nine_dhul_hijjah", "arafah"} {
+			if _, ok := rules[key]; !ok {
+				t.Errorf("%s rules missing schedule filter key %q", language, key)
+			}
+		}
+	}
+}
