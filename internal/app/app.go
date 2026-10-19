@@ -51,7 +51,10 @@ func New(cfg config.Config) (*fiber.App, error) {
 	server.Get("/health", health(cfg.AppName))
 	swaggerhttp.Register(server)
 
-	kemenagCalendar := fastingrepository.NewKemenagCalendar()
+	kemenagCalendar, err := fastingrepository.NewKemenagCalendar()
+	if err != nil {
+		return nil, fmt.Errorf("load Kemenag calendar: %w", err)
+	}
 	ummAlQuraCalendar := fastingrepository.NewUmmAlQuraCalendar()
 	fastingService, err := fastingusecase.NewFastingUsecase(kemenagCalendar, ummAlQuraCalendar)
 	if err != nil {

@@ -3,11 +3,22 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"puasa-sunnah/internal/domains/fasting"
 )
+
+func newTestKemenagCalendar(t *testing.T) *KemenagCalendar {
+	t.Helper()
+	calendar, err := NewKemenagCalendar()
+	if err != nil {
+		t.Fatalf("NewKemenagCalendar() error = %v", err)
+	}
+	return calendar
+}
 
 func TestKemenagCalendarHijriDate(t *testing.T) {
 	t.Parallel()
@@ -27,7 +38,7 @@ func TestKemenagCalendarHijriDate(t *testing.T) {
 		{date: "2026-12-31", want: fasting.HijriDate{Year: 1448, Month: 7, Day: 22}},
 	}
 
-	calendar := NewKemenagCalendar()
+	calendar := newTestKemenagCalendar(t)
 	for _, tt := range tests {
 		t.Run(tt.date, func(t *testing.T) {
 			t.Parallel()
@@ -49,8 +60,8 @@ func TestKemenagCalendarHijriDate(t *testing.T) {
 func TestKemenagCalendarRejectsUnsupportedDate(t *testing.T) {
 	t.Parallel()
 
-	calendar := NewKemenagCalendar()
-	for _, value := range []time.Time{coverageStart.AddDate(0, 0, -1), coverageEnd.AddDate(0, 0, 1)} {
+	calendar := newTestKemenagCalendar(t)
+	for _, value := range []time.Time{date(2025, time.December, 27), date(2027, time.January, 3)} {
 		_, err := calendar.HijriDate(context.Background(), value)
 		if !errors.Is(err, fasting.ErrDateOutsideCalendar) {
 			t.Errorf("HijriDate(%s) error = %v, want ErrDateOutsideCalendar", value.Format(time.DateOnly), err)
@@ -63,7 +74,7 @@ func TestKemenagCalendarHonorsCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := NewKemenagCalendar().HijriDate(ctx, coverageStart)
+	_, err := newTestKemenagCalendar(t).HijriDate(ctx, date(2026, time.January, 1))
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("HijriDate() error = %v, want context.Canceled", err)
 	}
@@ -72,15 +83,11 @@ func TestKemenagCalendarHonorsCancellation(t *testing.T) {
 func TestKemenagCalendarMonthBoundaries(t *testing.T) {
 	t.Parallel()
 
-	calendar := NewKemenagCalendar()
-	for i := 1; i < len(calendar.starts); i++ {
-		start := calendar.starts[i]
-		previous := calendar.starts[i-1]
-		monthLength := int(start.date.Sub(previous.date).Hours() / 24)
-		if monthLength != 29 && monthLength != 30 {
-			t.Errorf("month before %s has %d days, want 29 or 30", start.date.Format(time.DateOnly), monthLength)
+	calendar := newTestKemenagCalendar(t)
+	for _, start := range calendar.starts {
+		if start.date.Before(calendar.coverageStart) {
+			continue
 		}
-
 		got, err := calendar.HijriDate(context.Background(), start.date)
 		if err != nil {
 			t.Fatalf("HijriDate(%s) error = %v", start.date.Format(time.DateOnly), err)
@@ -91,14 +98,51 @@ func TestKemenagCalendarMonthBoundaries(t *testing.T) {
 		}
 	}
 
-	for _, endpoint := range []time.Time{coverageStart, coverageEnd} {
+	for _, endpoint := range []time.Time{calendar.coverageStart, calendar.coverageEnd} {
 		if _, err := calendar.HijriDate(context.Background(), endpoint); err != nil {
 			t.Errorf("coverage endpoint %s rejected: %v", endpoint.Format(time.DateOnly), err)
 		}
 	}
+	if got := calendar.coverageStart.Format(time.DateOnly) + ".." + calendar.coverageEnd.Format(time.DateOnly); got != "2025-12-28..2027-01-02" {
+		t.Errorf("coverage = %s, want 2025-12-28..2027-01-02", got)
+	}
+}
 
-	source := calendar.Source()
-	if source.CoverageStart != coverageStart.Format(time.DateOnly) || source.CoverageEnd != coverageEnd.Format(time.DateOnly) {
-		t.Errorf("source coverage = %s..%s, want %s..%s", source.CoverageStart, source.CoverageEnd, coverageStart.Format(time.DateOnly), coverageEnd.Format(time.DateOnly))
+func TestLoadKemenagCalendarRejectsInconsistentData(t *testing.T) {
+	t.Parallel()
+
+	const header = `"id":"x-%s","name":"x","url":"https://example.test","sha256":"` +
+		"0000000000000000000000000000000000000000000000000000000000000000" + `"`
+	publication := func(year, coverage, starts string) string {
+		return `{"year":` + year + `,` + strings.Replace(header, "%s", year, 1) + `,` + coverage + `,"month_starts":[` + starts + `]}`
+	}
+	valid := publication("2026", `"coverage_start":"2026-01-01","coverage_end":"2026-01-31"`,
+		`{"date":"2025-12-21","hijri_year":1447,"hijri_month":7},{"date":"2026-01-20","hijri_year":1447,"hijri_month":8}`)
+
+	tests := map[string]string{
+		"month length": publication("2027", `"coverage_start":"2026-02-01","coverage_end":"2026-02-10"`,
+			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":8},{"date":"2026-02-20","hijri_year":1447,"hijri_month":9}`),
+		"conflicting boundary": publication("2027", `"coverage_start":"2026-02-01","coverage_end":"2026-02-10"`,
+			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":9}`),
+		"coverage gap": publication("2027", `"coverage_start":"2026-02-02","coverage_end":"2026-02-10"`,
+			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":8}`),
+		"skipped month": publication("2027", `"coverage_start":"2026-02-01","coverage_end":"2026-02-10"`,
+			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":8},{"date":"2026-02-19","hijri_year":1447,"hijri_month":10}`),
+		"last month too long": publication("2027", `"coverage_start":"2026-02-01","coverage_end":"2026-02-25"`,
+			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":8}`),
+		"unknown field": strings.Replace(valid, `"year":2026`, `"year":2027,"extra":true`, 1),
+	}
+
+	if _, err := loadKemenagCalendar(fstest.MapFS{"kemenag/2026.json": {Data: []byte(valid)}}); err != nil {
+		t.Fatalf("valid data rejected: %v", err)
+	}
+	for name, second := range tests {
+		files := fstest.MapFS{
+			"kemenag/2026.json": {Data: []byte(valid)},
+			"kemenag/2027.json": {Data: []byte(second)},
+		}
+		if _, err := loadKemenagCalendar(files); err == nil {
+			t.Errorf("%s: loadKemenagCalendar() error = nil", name)
+		}
 	}
 }

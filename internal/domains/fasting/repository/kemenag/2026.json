@@ -1,0 +1,24 @@
+{
+  "year": 2026,
+  "id": "kemenag-ri-2026",
+  "name": "Kalender Hijriah Indonesia Tahun 2026",
+  "url": "https://aceh.kemenag.go.id/storage/berita_informasi/01K7GE96M0ZVRJ62Z520RMYG1B.pdf",
+  "sha256": "bcc2861dad7c01c9124de89fe51f5fe343483d2c3266bc4dedaa240cfa06b846",
+  "coverage_start": "2025-12-28",
+  "coverage_end": "2027-01-02",
+  "month_starts": [
+    { "date": "2025-12-21", "hijri_year": 1447, "hijri_month": 7 },
+    { "date": "2026-01-20", "hijri_year": 1447, "hijri_month": 8 },
+    { "date": "2026-02-19", "hijri_year": 1447, "hijri_month": 9 },
+    { "date": "2026-03-21", "hijri_year": 1447, "hijri_month": 10 },
+    { "date": "2026-04-19", "hijri_year": 1447, "hijri_month": 11 },
+    { "date": "2026-05-18", "hijri_year": 1447, "hijri_month": 12 },
+    { "date": "2026-06-16", "hijri_year": 1448, "hijri_month": 1 },
+    { "date": "2026-07-16", "hijri_year": 1448, "hijri_month": 2 },
+    { "date": "2026-08-14", "hijri_year": 1448, "hijri_month": 3 },
+    { "date": "2026-09-13", "hijri_year": 1448, "hijri_month": 4 },
+    { "date": "2026-10-12", "hijri_year": 1448, "hijri_month": 5 },
+    { "date": "2026-11-11", "hijri_year": 1448, "hijri_month": 6 },
+    { "date": "2026-12-10", "hijri_year": 1448, "hijri_month": 7 }
+  ]
+}
