@@ -302,6 +302,10 @@ paths:
       responses:
         "200":
           description: OK
+          headers:
+            Cache-Control:
+              description: public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400
+              type: string
           schema:
             $ref: '#/definitions/http.RulesResponse'
         "500":
@@ -381,6 +385,11 @@ paths:
       responses:
         "200":
           description: OK
+          headers:
+            Cache-Control:
+              description: CDN-cacheable for a day with an explicit date; 5 minutes
+                when date is omitted
+              type: string
           schema:
             $ref: '#/definitions/http.ScheduleResponse'
         "400":

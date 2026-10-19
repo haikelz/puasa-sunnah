@@ -17,6 +17,14 @@ type Handler struct {
 
 var errUsecaseRequired = errors.New("fasting usecase is required")
 
+// Vercel's CDN honors s-maxage and purges its cache on every deploy, so a
+// response for a fixed date stays valid until the calendar data changes.
+const (
+	cacheFixedDate = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
+	// Without a date the anchor is today in Asia/Jakarta, so keep the copy short.
+	cacheToday = "public, max-age=300, s-maxage=300"
+)
+
 func NewHandler(usecase fasting.Usecase) (*Handler, error) {
 	if usecase == nil {
 		return nil, errUsecaseRequired
@@ -38,9 +46,11 @@ func (h *Handler) Register(router fiber.Router) {
 // @Produce json
 // @Param language path string true "Response language" Enums(en, id)
 // @Success 200 {object} RulesResponse
+// @Header 200 {string} Cache-Control "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/rules [get]
 func (h *Handler) rules(c *fiber.Ctx) error {
+	c.Set(fiber.HeaderCacheControl, cacheFixedDate)
 	return c.JSON(fiber.Map{"data": h.usecase.Rules(c.UserContext(), requestLanguage(c))})
 }
 
@@ -57,6 +67,7 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 // @Param format query string false "Response representation" Enums(json, ics) default(json)
 // @Param is_pilgrim_at_arafah query boolean false "Apply the pilgrim-at-Arafah exception" default(false)
 // @Success 200 {object} ScheduleResponse
+// @Header 200 {string} Cache-Control "CDN-cacheable for a day with an explicit date; 5 minutes when date is omitted"
 // @Failure 400 {object} ErrorResponse "Invalid query"
 // @Failure 422 {object} ErrorResponse "Calendar does not cover the requested range"
 // @Failure 503 {object} ErrorResponse "Request timed out"
@@ -109,6 +120,12 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 			return err
 		}
 	}
+
+	cacheControl := cacheFixedDate
+	if c.Query("date") == "" {
+		cacheControl = cacheToday
+	}
+	c.Set(fiber.HeaderCacheControl, cacheControl)
 
 	if format == "ics" {
 		c.Set(fiber.HeaderContentType, "text/calendar; charset=utf-8")

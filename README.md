@@ -86,6 +86,7 @@ GET /api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura
 - `date` is an optional anchor in `YYYY-MM-DD`; it defaults to today in `Asia/Jakarta`.
 - `calendar` is optional and must be `id` or `umm-al-qura`; it defaults to `id`.
 - `types` optionally filters by comma-separated recommendation keys: `monday_thursday`, `white_days`, `ashura`, `six_shawwal_candidate`, `first_nine_dhul_hijjah`, or `arafah`. Matching is OR; only matching recommendations are returned, with overlapping dates deduplicated. Omitted/empty means all; unsupported keys return `400`.
+- Successful schedules and rules carry `Cache-Control` so Vercel's CDN serves repeats without running the function: one day at the CDN (one hour in browsers) for an explicit `date`, five minutes when `date` is omitted because the anchor is today. Vercel clears the CDN cache on each deploy, so a calendar data fix reaches the CDN immediately and browsers within an hour. Errors and `/health` send `no-store`.
 - Requests that exceed the 5-second deadline return `503`. Every response carries an `X-Request-ID` header that matches the server log entry.
 - `format=json|ics` defaults to JSON. `ics` downloads an RFC 5545 calendar with one all-day event per matching date, localized titles, source URL, caveat, and disclaimer. Empty schedules export a valid calendar without events. Import into Google Calendar, Apple Calendar, or Outlook; this is a snapshot, not an automatic subscription or notification service.
 - Weeks run Monday through Sunday. Month and year use Gregorian boundaries.

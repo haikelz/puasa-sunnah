@@ -100,6 +100,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/http.RulesResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
+                            }
                         }
                     },
                     "500": {
@@ -205,6 +211,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/http.ScheduleResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "CDN-cacheable for a day with an explicit date; 5 minutes when date is omitted"
+                            }
                         }
                     },
                     "400": {

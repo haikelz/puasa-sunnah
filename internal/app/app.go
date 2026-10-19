@@ -78,6 +78,7 @@ func New(cfg config.Config) (*fiber.App, error) {
 // @Router /health [get]
 func health(serviceName string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		c.Set(fiber.HeaderCacheControl, "no-store")
 		return c.JSON(HealthResponse{Status: "ok", Service: serviceName})
 	}
 }
@@ -146,6 +147,7 @@ func errorHandler(c *fiber.Ctx, err error) error {
 		)
 	}
 
+	c.Set(fiber.HeaderCacheControl, "no-store")
 	return c.Status(status).JSON(fiber.Map{
 		"error": fiber.Map{
 			"code":    status,

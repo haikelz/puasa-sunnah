@@ -121,6 +121,35 @@ func TestAPI(t *testing.T) {
 		}
 	})
 
+	t.Run("cache headers", func(t *testing.T) {
+		tests := []struct {
+			path string
+			want string
+		}{
+			{"/api/en/fasting/schedules?period=month&date=2026-08-09", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"},
+			{"/api/en/fasting/schedules?period=month&date=2026-08-09&format=ics", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"},
+			// No date means today; Umm al-Qura keeps this case inside coverage for decades.
+			{"/api/en/fasting/schedules?period=week&calendar=umm-al-qura", "public, max-age=300, s-maxage=300"},
+			{"/api/id/fasting/rules", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"},
+			{"/api/en/fasting/schedules?period=decade&date=2026-08-09", "no-store"},
+			{"/health", "no-store"},
+		}
+		for _, tt := range tests {
+			request, err := http.NewRequest(http.MethodGet, tt.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response, err := server.Test(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = response.Body.Close()
+			if got := response.Header.Get("Cache-Control"); got != tt.want {
+				t.Errorf("GET %s Cache-Control = %q, want %q", tt.path, got, tt.want)
+			}
+		}
+	})
+
 	t.Run("health", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)
 		if err != nil {
