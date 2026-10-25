@@ -2,8 +2,11 @@
 
 This profile records the owner's demonstrated Go service conventions. Load it
 with `preferences.md` and `go.md`, then add the applicable Echo,
-GORM/PostgreSQL, Docker, and infrastructure guidelines. Repository-local rules,
-finance documentation, and public contracts take precedence.
+GORM/PostgreSQL, Fiber, Docker, and infrastructure guidelines.
+
+Precedence follows `general.md` §2; this profile wins over the Go base and
+framework guides. Examples use Echo v5 (`c *echo.Context`); v4 repositories keep
+`c echo.Context`.
 
 ## 1. Service Shape and Ownership
 
@@ -31,7 +34,7 @@ has a stronger convention:
 ```text
 internal/domains/<domain>/
 ├── dto.go
-├── error.go
+├── errors.go
 ├── repository.go
 ├── usecase.go
 ├── delivery/http/<domain>_handler.go
@@ -50,33 +53,57 @@ internal/domains/<domain>/
   `u`, and `r` respectively.
 - In a long interface, group related methods with one short section comment and
   one blank line. Do not add a heading before every method.
+- Inside implementation packages, import the domain root as `domain`. For the
+  shared models package, follow the package's existing alias: repositories
+  usually alias it as `model`, while handlers often import `models` unaliased.
+  In the composition root, alias each
+  implementation package by role: `<domain>HTTP`, `<domain>Repository`,
+  `<domain>Usecase`.
+- Do not create new package names with underscores. An existing underscore
+  directory keeps its name, and its import alias drops the underscore.
 
 ## 2. Formatting, Imports, and Naming
 
 - Target the Go version declared by `go.mod`.
-- Run `gofmt -s` for every changed Go file. When the project uses `goimports`,
-  run it without `-local` for this import order, unless repository tooling
-  explicitly requires another order; inspect the resulting groups afterward.
-  Formatter output is authoritative for indentation and alignment.
+- Format with the repository's `golangci-lint` formatters (`gofmt` with
+  simplify and `goimports` with `local-prefixes`). Check without writing via
+  `golangci-lint fmt --diff ./...`. Formatter output is authoritative for
+  indentation and alignment.
 - Treat whitespace as part of readability. The formatter owns indentation and
   alignment; the developer still owns intentional blank lines between semantic
   phases.
-- Keep import groups as standard library, module-local, then third-party. Use one
-  blank line between groups and no blank lines within a group. Sort imports
-  within each group; do not use `goimports -local <module-path>` to enforce this
-  profile, because that flag moves module-local imports *after* third-party
-  imports. Follow repository-enforced import tooling if it requires otherwise.
+- Write import groups by hand as standard library, module-local, then
+  third-party, with one blank line between groups and no blank lines within a
+  group. `goimports` with `local-prefixes` keeps this order when the groups are
+  already separated. Never merge the groups into one block, because the tool
+  then moves module-local imports after third-party imports.
 - Alias an import only to resolve a collision or make a non-obvious package
   identity explicit. Keep an established explicit alias consistent throughout a
   package.
-- Use standard Go initialisms: `ID`, `URL`, `HTTP`, `JSON`, `API`, and `DTO`.
+- Use standard Go initialisms such as `ID`, `URL`, `HTTP`, `JSON`, and `API`.
+  Transport types in the domain root are the one named exception: name them
+  `Dto<Action><Noun>`, for example `DtoCreateRequest` and `DtoListResponse`.
+  The lint configuration disables ST1003 for this reason. Do not add new `Id`
+  fields.
 - Use concise, lowercase package names; preserve existing legacy names instead
   of renaming a package as incidental cleanup.
-- Use DTO suffixes for transport contracts and `Usecase`, `Repository`, and
-  `Handler` suffixes where the architecture already makes that ownership useful.
-- Constructors should make dependencies explicit and normally return the domain
-  interface when callers should depend only on the capability. Use a keyed,
-  multiline literal so dependency mapping remains visible after formatting.
+- Use `Usecase`, `Repository`, and `Handler` suffixes for concrete role types.
+- Constructors make dependencies explicit and return the domain interface when
+  callers should depend only on the capability. Use a keyed, multiline literal
+  so dependency mapping remains visible after formatting.
+- In layered Echo services, constructors never validate dependencies or return
+  an error; the composition root guarantees non-nil dependencies. A method that
+  can run with an optional dependency guards it at entry. Fiber services follow
+  the constructor rules in `fiber.md`.
+- Handler and repository structs MAY export their dependency fields
+  (`Usecase`, `Conn *gorm.DB`) so tests can build them by field.
+- When a signature has three or more parameters or would overflow, put one
+  parameter per line with a trailing comma and the return type on the closing
+  line.
+- Order struct tags as `json`, then `form` or `query`, then `gorm` or
+  `swaggertype`, with `validate` last.
+- Declare status, state, and type values once in a grouped `const` block. Never
+  repeat the string literal at call sites.
 - Declare one named struct field per line. Do not compress fields of the same type
   into `first, second string` when the struct represents a domain, transport,
   persistence, or dependency contract.
@@ -86,10 +113,27 @@ internal/domains/<domain>/
   value types where the meaning is unmistakable.
 
 ```go
-func NewBannerUsecase(repo banner.Repository) banner.Usecase {
-	return &bannerUsecase{
-		repository: repo,
+func NewOrderUsecase(
+	repo domain.Repository,
+	itemRepo item.Repository,
+	clock Clock,
+) domain.Usecase {
+	return &OrderUsecase{
+		Clock:    clock,
+		ItemRepo: itemRepo,
+		Repo:     repo,
 	}
+}
+
+const (
+	StatusDraft     = "draft"
+	StatusPaid      = "paid"
+	StatusCancelled = "cancelled"
+)
+
+type DtoCreateRequest struct {
+	CustomerID uint64 `json:"customer_id" validate:"required"`
+	Note       string `json:"note" form:"note" validate:"max=500"`
 }
 ```
 
@@ -145,33 +189,41 @@ groups of related statements, not from line count.
 - Group dependency guards together, then separate them from domain checks and
   I/O. Keep adjacent guards for the same invariant together; do not insert a
   blank line simply because an `if` returned.
-- For short repository methods, keep the query, its error check, and the final
-  return together when they form one lookup. Add a blank line before the return
-  only when mapping or another distinct phase follows the check.
+- After a closing `}`, leave one blank line before the final `return`. A
+  one-statement direct delegation needs none.
 
 Preferred handler rhythm:
 
 ```go
-func (h *Handler) Update(c echo.Context) error {
-	actor, err := h.authenticate(c)
+func (h *OrderHandler) Update(c *echo.Context) error {
+	p, ok := model.GetPrincipal(c)
+	if !ok {
+		return model.Unauthorized(c)
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		return respondError(c, err)
+		return model.Error(c, "Invalid order ID.")
 	}
 
-	var input UpdateInput
-	if err := c.Bind(&input); err != nil {
-		return respondError(c, ErrInvalidInput)
+	var req domain.DtoUpdateRequest
+	if err := c.Bind(&req); err != nil {
+		return model.Error(c, "Invalid request body.")
 	}
-	if err := c.Validate(&input); err != nil {
-		return respondError(c, err)
+	if err := c.Validate(&req); err != nil {
+		return model.Error(c, helper.MappingError(err))
 	}
 
-	result, err := h.usecase.Update(c.Request().Context(), actor, input)
+	res, err := h.Usecase.Update(c.Request().Context(), p.CompanyID, id, req)
 	if err != nil {
-		return respondError(c, err)
+		if errors.Is(err, domain.ErrClosed) {
+			return model.Error(c, "Order is already closed.")
+		}
+
+		return model.Error(c, "Could not update the order.")
 	}
 
-	return respondSuccess(c, result)
+	return model.Success(c, res, "Order updated.")
 }
 ```
 
@@ -179,24 +231,29 @@ Preferred usecase rhythm (the blank lines separate different concerns, not
 every error check):
 
 ```go
-func (u *orderUsecase) Assign(ctx context.Context, orderID, driverID uuid.UUID) error {
-	if u.repository == nil {
-		return ErrRepositoryUnavailable
+func (u *OrderUsecase) Assign(
+	ctx context.Context,
+	companyID uint64,
+	orderID uint64,
+	courierID uint64,
+) error {
+	if u.Notifier == nil {
+		return domain.ErrNotifierUnavailable
 	}
-	if driverID == uuid.Nil {
-		return ErrInvalidDriver
+	if courierID == 0 {
+		return domain.ErrInvalidCourier
 	}
 
-	order, err := u.repository.FindByID(ctx, orderID)
+	order, err := u.Repo.Find(ctx, companyID, orderID)
 	if err != nil {
-		return err
+		return fmt.Errorf("find order: %w", err)
 	}
 
-	if order.Status != StatusSearching {
-		return ErrInvalidStateTransition
+	if order.Status != domain.StatusSearching {
+		return domain.ErrInvalidStateTransition
 	}
 
-	return u.repository.AssignDriver(ctx, orderID, driverID)
+	return u.Repo.AssignCourier(ctx, orderID, courierID)
 }
 ```
 
@@ -219,23 +276,20 @@ Handlers should execute one consistent sequence:
 5. Call one usecase operation.
 6. Translate the result into the established success or error envelope.
 
-```go
-request := &payment.DtoCoinPayment{}
-if err := c.Bind(request); err != nil {
-	return models.ErrorResponse(c, err.Error())
-}
-if err := c.Validate(request); err != nil {
-	return models.ErrorResponse(c, helper.MappingError(err))
-}
+The preferred handler rhythm above shows the sequence.
 
-result, err := h.paymentUsecase.PayWithCoin(c, request)
-if err != nil {
-	return models.ErrorResponse(c, err.Error())
-}
-
-return models.SuccessResponse(c, result, "Payment successful")
-```
-
+- Name the principal `p`, the bound request `req`, and the usecase result `res`.
+  Parse a path ID inline with `strconv.ParseUint(c.Param("id"), 10, 64)` and
+  check the error on the next line.
+- Bind small request DTOs as values, not pointers.
+- Order usecase parameters as `ctx`, scope or actor, target ID, then request.
+- Map known domain sentinels to a status and message with `errors.Is`. Give
+  every unclassified error a fixed fallback message and log it at the handler.
+  Never return `err.Error()` to the client.
+- User-facing, localized, sentence-case messages live only in handler response
+  mapping. Domain errors, logs, and comments are English.
+- New DTOs use `validate` tags with `c.Validate`. Keep handwritten checks only
+  where the repository binds multipart or handler-local structs that way.
 - DTO tags MUST match their input boundary: `json`, `form`, `query`, and
   `validate` serve different purposes.
 - The handler MUST reject invalid bind/validation input before calling a usecase.
@@ -251,6 +305,37 @@ Keep bind and validation checks adjacent because they form one input phase. Add
 a blank line only after that phase is complete. Do not move database lookups,
 state transitions, transaction control, or provider orchestration into a handler
 to avoid adding a usecase method.
+
+### Handler construction and routes
+
+The handler constructor takes the route group and its usecase dependencies,
+builds `h`, and registers routes in one contiguous block. It returns nothing.
+Declare a separate constructor per access surface (public, customer, admin) only
+when routes or dependencies differ. When routes need different permissions,
+create one sub-group per permission and separate the groups with one blank line.
+
+```go
+func NewOrderHandler(g *echo.Group, usecase domain.Usecase) {
+	h := &OrderHandler{
+		Usecase: usecase,
+	}
+
+	read := g.Group("")
+	read.Use(middleware.RequirePermissions("order.read"))
+	read.GET("/orders", h.List)
+	read.GET("/orders/:id", h.Get)
+
+	write := g.Group("")
+	write.Use(middleware.RequirePermissions("order.write"))
+	write.POST("/orders", h.Create)
+}
+```
+
+Every handler method sits directly under a `// <Method> godoc` block with
+`@Summary`, `@Tags`, `@Param`, `@Security`, `@Success` and `@Failure` for only
+the outcomes the method can return, and an `@Router` that matches the registered
+path. Follow the repository on route names: keep `.Name` where every route has
+one, and do not add names where none exist.
 
 ### Usecase workflow
 
@@ -272,6 +357,9 @@ Usecases should read as a top-to-bottom business procedure:
   domain grouping.
 - Use immediate error returns. Add operation context when crossing a boundary;
   do not log and return the same error from every layer.
+- Write wrap context as a lowercase, verb-first operation phrase:
+  `fmt.Errorf("lock order: %w", err)`. Never start it with "failed to" or
+  "error".
 - Extract a helper when it owns a coherent repeated workflow or materially
   reduces nesting. Do not create a helper merely to shorten a long function.
 - Keep external side effects after a successful database commit unless an
@@ -279,8 +367,12 @@ Usecases should read as a top-to-bottom business procedure:
 
 ## 4. Context, GORM, and Repository Work
 
-- Pass the request context through blocking work. In Echo/GORM code, use
-  `db.WithContext(c.Request().Context())` for new and touched queries.
+- Pass the request context through blocking work. Handlers pass
+  `c.Request().Context()`; repositories receive `ctx context.Context` and query
+  through `r.Conn.WithContext(ctx)`. Never pass `echo.Context` into a usecase or
+  repository.
+- Never interpolate request values into `Order`, column, or table names. Map a
+  requested sort field through an allowlist.
 - Use parameterized GORM predicates. Apply a deterministic ordering before
   offset/limit pagination.
 - Keep count and list filters identical. Preserve soft-delete semantics in joins
@@ -304,18 +396,58 @@ Repository methods should expose this visual order:
 Format fluent queries vertically once they contain several operations:
 
 ```go
-var order models.Order
-err := r.db.WithContext(ctx).
+var order model.Order
+
+err := r.Conn.WithContext(ctx).
 	Preload("Customer").
 	Preload("History", func(db *gorm.DB) *gorm.DB {
 		return db.Order("created_at DESC")
 	}).
 	Where("id = ?", id).
 	First(&order).Error
-if err != nil {
-	return nil, err
+if errors.Is(err, gorm.ErrRecordNotFound) {
+	return nil, domain.ErrNotFound
 }
+if err != nil {
+	return nil, fmt.Errorf("find order: %w", err)
+}
+
 return &order, nil
+```
+
+List operations return `(items, total int64, err)`. The usecase clamps the limit
+against a shared maximum. The repository builds `q` once, applies each optional
+filter with `q = q.Where(...)` under an `if` guard, counts, then applies a
+deterministic `Order` and `Offset`/`Limit`. Do not use `Scopes` for this.
+
+```go
+func (r *OrderRepository) List(
+	ctx context.Context,
+	companyID uint64,
+	filter domain.DtoListFilter,
+) ([]model.Order, int64, error) {
+	q := r.Conn.WithContext(ctx).
+		Model(&model.Order{}).
+		Where("company_id = ?", companyID)
+	if filter.Status != "" {
+		q = q.Where("status = ?", filter.Status)
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("count orders: %w", err)
+	}
+
+	var orders []model.Order
+	if err := q.Order("created_at DESC, id DESC").
+		Offset(filter.Offset).
+		Limit(filter.Limit).
+		Find(&orders).Error; err != nil {
+		return nil, 0, fmt.Errorf("list orders: %w", err)
+	}
+
+	return orders, total, nil
+}
 ```
 
 For state transitions, prefer a transaction callback with the following visible
@@ -330,39 +462,63 @@ phases:
 6. Return from the callback so GORM owns commit or rollback.
 7. Update best-effort cache state only after commit.
 
+Declare the result before `Transaction`, assign it inside the callback, and
+check `err` once after the callback. Helpers that run inside a transaction take
+`tx *gorm.DB` as the first parameter and no `ctx`, because `tx` already carries
+it. Name them by action (`lockOrder`, `creditWallet`), or with a `Tx` suffix on
+interface methods.
+
 ```go
-err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-	var order models.Order
+func (r *OrderRepository) lockOrder(tx *gorm.DB, id uint64) (*model.Order, error) {
+	var order model.Order
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("id = ?", id).
 		First(&order).Error; err != nil {
+		return nil, fmt.Errorf("lock order: %w", err)
+	}
+
+	return &order, nil
+}
+```
+
+```go
+var completed model.Order
+
+err := r.Conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	order, err := r.lockOrder(tx, id)
+	if err != nil {
 		return err
 	}
 
 	if order.Status == StatusCompleted {
+		completed = *order
 		return nil
 	}
 	if order.Status != StatusInProgress {
 		return ErrInvalidStateTransition
 	}
 
-	if err := tx.Model(&order).
+	if err := tx.Model(order).
 		Update("status", StatusCompleted).Error; err != nil {
-		return err
+		return fmt.Errorf("update order status: %w", err)
 	}
 
-	history := models.OrderHistory{
+	history := model.OrderHistory{
 		OrderID: order.ID,
 		Status:  StatusCompleted,
 	}
+	if err := tx.Create(&history).Error; err != nil {
+		return fmt.Errorf("create order history: %w", err)
+	}
 
-	return tx.Create(&history).Error
+	completed = *order
+	return nil
 })
 if err != nil {
-	return fmt.Errorf("complete order: %w", err)
+	return nil, fmt.Errorf("complete order: %w", err)
 }
 
-return nil
+return &completed, nil
 ```
 
 Do not interleave post-commit cache or notification work inside the transaction
@@ -379,14 +535,15 @@ This rule applies to payments, callbacks, wallets, top-ups, settlement,
 commissions, withdrawals, refunds, bank accounts, and journals.
 
 ```go
-return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-    if err := repository.UpdateBalanceTx(tx, walletID, amount); err != nil {
-        return fmt.Errorf("update wallet balance: %w", err)
-    }
-    if err := repository.CreateLedgerTx(tx, ledger); err != nil {
-        return fmt.Errorf("create wallet ledger: %w", err)
-    }
-    return nil
+return r.Conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := r.UpdateBalanceTx(tx, walletID, amount); err != nil {
+		return fmt.Errorf("update wallet balance: %w", err)
+	}
+	if err := r.CreateLedgerTx(tx, ledger); err != nil {
+		return fmt.Errorf("create wallet ledger: %w", err)
+	}
+
+	return nil
 })
 ```
 
@@ -440,16 +597,23 @@ return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
   boundaries: below, at, and above a threshold.
 - Prefer small fakes that satisfy the domain interface for usecase tests. Assert
   result, error, and meaningful side effects/call count.
-- Handler tests should construct an Echo context and stub the usecase boundary.
+- Follow the repository's test style. Stdlib repositories use `t.Fatalf` and
+  inline table-driven cases; repositories that already use testify use
+  `require`, `Test_Type_Method_behavior` names, and given/when/then comments. Do
+  not add testify where it is absent.
+- Handler tests register the handler on an `echo.New()` group with a stubbed
+  usecase and call `e.ServeHTTP` through `httptest`.
 - Finance, callback, and state-transition changes MUST test rollback,
   idempotency, duplicate events, prior-state guards, ownership, and ledger
   consistency.
 - Tests MUST not invoke live Firebase, S3, Redis, Kafka, payment providers, or
   customer endpoints. Restore package globals after tests that alter them and do
   not run conflicting global-state tests in parallel.
-- Run the repository formatter, focused tests, `go test ./...`, `go vet ./...`,
-  and the relevant command build. Do not rely on stale Makefile targets without
-  verifying they point at the active command.
+- Run `golangci-lint fmt --diff ./...`, `golangci-lint run ./...`, focused
+  tests, `go test ./...`, `go vet ./...`, `go build` of the repository
+  entrypoint (usually `./cmd/app`), and `git diff --check`. This is the single
+  Go verification list; the other Go guides point here. Do not rely on stale Makefile targets without verifying
+  they point at the active command.
 
 ## 9. Legacy Patterns to Avoid Extending
 
@@ -462,5 +626,14 @@ return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 - Do not extend unchecked JWT claim assertions, Echo context leakage into new
   infrastructure, ignored errors, manual timestamps without need, or temporary
   environment-specific response rewriting.
+- Do not extend setter dependency injection, `GetDB() any` with a type
+  assertion, manual `Begin`/`Rollback`/`Commit`, or the GORM v1
+  `tx.Set("gorm:query_option", "FOR UPDATE")` form, which does not lock rows in
+  GORM v2.
+- Do not extend `fmt.Printf` error reporting, `_ =` on cache, geo, or push
+  notification errors, fire-and-forget goroutines on `context.Background()`,
+  `float64` money, commented-out code, log-and-return in every repository
+  method, value receivers mixed with pointer receivers, repeated status string
+  literals, or `"failed to ..."` wrap messages.
 - Do not depend on cron execution from every API replica or assume a configured
   Kafka topic implies an active consumer. Verify operational ownership first.

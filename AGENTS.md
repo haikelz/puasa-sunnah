@@ -81,9 +81,11 @@ Core rules and references are documented in `README.md` and returned by `GET /ap
 <!-- AI-GUIDELINES:BEGIN -->
 ## AI Engineering Guidelines
 
-Read `.agents/general.md` and `.agents/preferences.md` for every task. Then select the smallest matching context profile below. Do not read every installed companion by default. Repository-local contracts and instructions remain authoritative.
+Read `.agents/general.md` and `.agents/preferences.md` for every task. Then select the smallest matching context profile below. Do not read every installed companion by default. Precedence follows `.agents/general.md` §2: repository-local instructions win, then the `haikel-*` owner profile, then the other guidelines.
 
-- **Repository setup, documentation, planning, or process:** no companion guideline.
+**Tutor mode is on.** Read `.agents/guidelines/tutor.md` before every task. It decides who writes the code and overrides the change-work rules in `.agents/general.md` §3; the other guidelines still decide what good code looks like.
+
+- **Repository setup, documentation, planning, CI, or process:** `.agents/harness.md`.
 - **Go language, package, or service work:** `.agents/guidelines/go.md` and `.agents/guidelines/haikel-go.md`.
 - **Fiber HTTP work:** `.agents/guidelines/go.md`, `.agents/guidelines/haikel-go.md`, and `.agents/guidelines/fiber.md`.
 - **Container, Compose, delivery, or runtime work:** `.agents/guidelines/docker.md`; add an application profile only when its build or runtime behavior also changes.
