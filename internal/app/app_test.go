@@ -160,6 +160,57 @@ func TestAPI(t *testing.T) {
 		}
 	})
 
+	t.Run("day lookup", func(t *testing.T) {
+		tests := []struct {
+			method     string
+			path       string
+			body       string
+			wantStatus int
+			wantCache  string
+			wantText   string
+		}{
+			{
+				method:     http.MethodGet,
+				path:       "/api/id/fasting/days/2027-03-10",
+				wantStatus: http.StatusOK,
+				wantCache:  wantCacheFixedDate,
+				wantText:   `"verdict":"prohibited"`,
+			},
+			{
+				method:     http.MethodGet,
+				path:       "/api/en/fasting/days/today?calendar=umm-al-qura",
+				wantStatus: http.StatusOK,
+				wantCache:  wantCacheToday,
+				wantText:   `"calendar":"umm-al-qura"`,
+			},
+			{
+				method:     http.MethodGet,
+				path:       "/api/en/fasting/days/06-08-2027",
+				wantStatus: http.StatusBadRequest,
+				wantCache:  cacheNoStore,
+				wantText:   "date must use YYYY-MM-DD",
+			},
+			{
+				method:     http.MethodGet,
+				path:       "/api/en/fasting/days/2028-01-03",
+				wantStatus: http.StatusUnprocessableEntity,
+				wantCache:  cacheNoStore,
+				wantText:   "calendar=umm-al-qura",
+			},
+		}
+
+		for _, tt := range tests {
+			got := sendRequest(t, server, tt.method, tt.path, tt.body)
+
+			isExpected := got.status == tt.wantStatus &&
+				got.cacheControl == tt.wantCache &&
+				strings.Contains(got.body, tt.wantText)
+			if !isExpected {
+				t.Errorf("%s %s = %d %q %s", tt.method, tt.path, got.status, got.cacheControl, got.body)
+			}
+		}
+	})
+
 	t.Run("health", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)
 		if err != nil {

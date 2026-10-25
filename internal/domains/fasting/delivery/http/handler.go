@@ -44,6 +44,7 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Use(requireSupportedLanguage)
 	router.Get("/rules", h.rules)
 	router.Get("/schedules", h.schedule)
+	router.Get("/days/:date", h.day)
 	router.Post("/classify", h.classify)
 }
 
@@ -128,6 +129,49 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 		c.Set(fiber.HeaderContentDisposition, "attachment; filename=puasa-sunnah.ics")
 		return c.SendString(scheduleICS(res))
 	}
+
+	return c.JSON(fiber.Map{"data": res})
+}
+
+// day godoc
+// @Summary Look up one date
+// @Description Classifies one Gregorian date with a Hijri date derived from the selected calendar. Unlike schedules, the result includes restrictions such as Ramadan, Eid, and Tashriq, so it answers whether to fast on that day.
+// @Tags Fasting
+// @Produce json
+// @Param language path string true "Response language" Enums(en, id)
+// @Param date path string true "Gregorian date in YYYY-MM-DD, or today for Asia/Jakarta"
+// @Param calendar query string false "Hijri calendar source; defaults to id" Enums(id, umm-al-qura) default(id)
+// @Param is_pilgrim_at_arafah query boolean false "Apply the pilgrim-at-Arafah exception" default(false)
+// @Success 200 {object} DayResponse
+// @Header 200 {string} Cache-Control "CDN-cacheable for a day with an explicit date; 5 minutes for today"
+// @Failure 400 {object} ErrorResponse "Invalid date or query"
+// @Failure 422 {object} ErrorResponse "Calendar does not cover the date"
+// @Failure 503 {object} ErrorResponse "Request timed out"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/{language}/fasting/days/{date} [get]
+func (h *Handler) day(c *fiber.Ctx) error {
+	language := requestLanguage(c)
+
+	isPilgrim, err := parsePilgrim(c, language)
+	if err != nil {
+		return err
+	}
+
+	res, err := h.usecase.Day(c.UserContext(), domain.DtoDayRequest{
+		Date:              c.Params("date"),
+		Calendar:          domain.Calendar(c.Query("calendar")),
+		IsPilgrimAtArafah: isPilgrim,
+		Language:          language,
+	})
+	if err != nil {
+		return usecaseError(err, language)
+	}
+
+	cacheControl := cacheFixedDate
+	if c.Params("date") == domain.DateToday {
+		cacheControl = cacheToday
+	}
+	c.Set(fiber.HeaderCacheControl, cacheControl)
 
 	return c.JSON(fiber.Map{"data": res})
 }

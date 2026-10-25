@@ -69,6 +69,94 @@
                 }
             }
         },
+        "/api/{language}/fasting/days/{date}": {
+            "get": {
+                "description": "Classifies one Gregorian date with a Hijri date derived from the selected calendar. Unlike schedules, the result includes restrictions such as Ramadan, Eid, and Tashriq, so it answers whether to fast on that day.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Fasting"
+                ],
+                "summary": "Look up one date",
+                "parameters": [
+                    {
+                        "enum": [
+                            "en",
+                            "id"
+                        ],
+                        "type": "string",
+                        "description": "Response language",
+                        "name": "language",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Gregorian date in YYYY-MM-DD, or today for Asia/Jakarta",
+                        "name": "date",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "umm-al-qura"
+                        ],
+                        "type": "string",
+                        "default": "id",
+                        "description": "Hijri calendar source; defaults to id",
+                        "name": "calendar",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Apply the pilgrim-at-Arafah exception",
+                        "name": "is_pilgrim_at_arafah",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.DayResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "CDN-cacheable for a day with an explicit date; 5 minutes for today"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid date or query",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Calendar does not cover the date",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Request timed out",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/{language}/fasting/rules": {
             "get": {
                 "description": "Returns recommended patterns, prohibited days, evidence links, calculations, and jurisprudential caveats.",
@@ -402,6 +490,50 @@
                 }
             }
         },
+        "fasting.Day": {
+            "type": "object",
+            "properties": {
+                "calendar": {
+                    "$ref": "#/definitions/fasting.Calendar"
+                },
+                "calendar_source": {
+                    "$ref": "#/definitions/fasting.CalendarSource"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "disclaimer": {
+                    "type": "string"
+                },
+                "hijri": {
+                    "$ref": "#/definitions/fasting.HijriDate"
+                },
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.Occurrence"
+                    }
+                },
+                "restrictions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.Occurrence"
+                    }
+                },
+                "verdict": {
+                    "$ref": "#/definitions/fasting.Verdict"
+                },
+                "weekday": {
+                    "type": "string"
+                }
+            }
+        },
         "fasting.HijriDate": {
             "type": "object",
             "required": [
@@ -571,6 +703,14 @@
             "properties": {
                 "data": {
                     "$ref": "#/definitions/fasting.Classification"
+                }
+            }
+        },
+        "http.DayResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/fasting.Day"
                 }
             }
         },

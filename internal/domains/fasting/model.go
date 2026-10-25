@@ -125,6 +125,24 @@ type CalendarSource struct {
 	Publications  []CalendarPublication `json:"publications"`
 }
 
+// DtoDayRequest asks for one date.
+type DtoDayRequest struct {
+	Date              string
+	Calendar          Calendar
+	IsPilgrimAtArafah bool
+	Language          Language
+}
+
+// DateToday asks for the current date in Asia/Jakarta wherever a date is accepted.
+const DateToday = "today"
+
+// Day is the classification of one date with its calendar source.
+type Day struct {
+	Classification
+	Calendar       Calendar       `json:"calendar"`
+	CalendarSource CalendarSource `json:"calendar_source"`
+}
+
 // CalendarPublication is one document, such as a yearly Kemenag PDF, behind a
 // calendar's dates.
 type CalendarPublication struct {

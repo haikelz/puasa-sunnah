@@ -10,6 +10,10 @@ type ScheduleResponse struct {
 	Data domain.Schedule `json:"data"`
 }
 
+type DayResponse struct {
+	Data domain.Day `json:"data"`
+}
+
 type ClassificationResponse struct {
 	Data domain.Classification `json:"data"`
 }

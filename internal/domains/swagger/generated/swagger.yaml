@@ -92,6 +92,35 @@ definitions:
     - date
     - hijri
     type: object
+  fasting.Day:
+    properties:
+      calendar:
+        $ref: '#/definitions/fasting.Calendar'
+      calendar_source:
+        $ref: '#/definitions/fasting.CalendarSource'
+      date:
+        type: string
+      disclaimer:
+        type: string
+      hijri:
+        $ref: '#/definitions/fasting.HijriDate'
+      notes:
+        items:
+          type: string
+        type: array
+      recommendations:
+        items:
+          $ref: '#/definitions/fasting.Occurrence'
+        type: array
+      restrictions:
+        items:
+          $ref: '#/definitions/fasting.Occurrence'
+        type: array
+      verdict:
+        $ref: '#/definitions/fasting.Verdict'
+      weekday:
+        type: string
+    type: object
   fasting.HijriDate:
     properties:
       day:
@@ -211,6 +240,11 @@ definitions:
       data:
         $ref: '#/definitions/fasting.Classification'
     type: object
+  http.DayResponse:
+    properties:
+      data:
+        $ref: '#/definitions/fasting.Day'
+    type: object
   http.ErrorDetail:
     properties:
       code:
@@ -282,6 +316,69 @@ paths:
           schema:
             $ref: '#/definitions/http.ErrorResponse'
       summary: Classify a fasting date
+      tags:
+      - Fasting
+  /api/{language}/fasting/days/{date}:
+    get:
+      description: Classifies one Gregorian date with a Hijri date derived from the
+        selected calendar. Unlike schedules, the result includes restrictions such
+        as Ramadan, Eid, and Tashriq, so it answers whether to fast on that day.
+      parameters:
+      - description: Response language
+        enum:
+        - en
+        - id
+        in: path
+        name: language
+        required: true
+        type: string
+      - description: Gregorian date in YYYY-MM-DD, or today for Asia/Jakarta
+        in: path
+        name: date
+        required: true
+        type: string
+      - default: id
+        description: Hijri calendar source; defaults to id
+        enum:
+        - id
+        - umm-al-qura
+        in: query
+        name: calendar
+        type: string
+      - default: false
+        description: Apply the pilgrim-at-Arafah exception
+        in: query
+        name: is_pilgrim_at_arafah
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: CDN-cacheable for a day with an explicit date; 5 minutes
+                for today
+              type: string
+          schema:
+            $ref: '#/definitions/http.DayResponse'
+        "400":
+          description: Invalid date or query
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "422":
+          description: Calendar does not cover the date
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "503":
+          description: Request timed out
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Look up one date
       tags:
       - Fasting
   /api/{language}/fasting/rules:
