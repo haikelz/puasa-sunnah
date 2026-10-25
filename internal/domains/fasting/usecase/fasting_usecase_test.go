@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"puasa-sunnah/internal/domains/fasting"
-	fastingrepository "puasa-sunnah/internal/domains/fasting/repository"
+	domain "puasa-sunnah/internal/domains/fasting"
+	fastingRepository "puasa-sunnah/internal/domains/fasting/repository"
 )
 
 func TestClassify(t *testing.T) {
@@ -14,48 +14,48 @@ func TestClassify(t *testing.T) {
 
 	tests := []struct {
 		name                string
-		request             fasting.ClassificationRequest
-		wantVerdict         fasting.Verdict
+		request             domain.ClassificationRequest
+		wantVerdict         domain.Verdict
 		wantRecommendations []string
 		wantRestrictions    []string
 	}{
 		{
 			name: "ashura on thursday combines recommendations",
-			request: fasting.ClassificationRequest{
-				Date: "2026-06-25", Hijri: fasting.HijriDate{Year: 1448, Month: 1, Day: 10},
+			request: domain.ClassificationRequest{
+				Date: "2026-06-25", Hijri: domain.HijriDate{Year: 1448, Month: 1, Day: 10},
 			},
-			wantVerdict:         fasting.VerdictRecommended,
+			wantVerdict:         domain.VerdictRecommended,
 			wantRecommendations: []string{"monday_thursday", "ashura"},
 		},
 		{
 			name: "eid restriction takes precedence",
-			request: fasting.ClassificationRequest{
-				Date: "2026-03-21", Hijri: fasting.HijriDate{Year: 1447, Month: 10, Day: 1},
+			request: domain.ClassificationRequest{
+				Date: "2026-03-21", Hijri: domain.HijriDate{Year: 1447, Month: 10, Day: 1},
 			},
-			wantVerdict:      fasting.VerdictProhibited,
+			wantVerdict:      domain.VerdictProhibited,
 			wantRestrictions: []string{"eid_al_fitr"},
 		},
 		{
 			name: "ramadan is not voluntary",
-			request: fasting.ClassificationRequest{
-				Date: "2026-02-23", Hijri: fasting.HijriDate{Year: 1447, Month: 9, Day: 6},
+			request: domain.ClassificationRequest{
+				Date: "2026-02-23", Hijri: domain.HijriDate{Year: 1447, Month: 9, Day: 6},
 			},
-			wantVerdict:      fasting.VerdictObligatoryPeriod,
+			wantVerdict:      domain.VerdictObligatoryPeriod,
 			wantRestrictions: []string{"ramadan"},
 		},
 		{
 			name: "pilgrim does not receive overlapping Arafah recommendation",
-			request: fasting.ClassificationRequest{
-				Date: "2026-06-01", Hijri: fasting.HijriDate{Year: 1447, Month: 12, Day: 9}, IsPilgrimAtArafah: true,
+			request: domain.ClassificationRequest{
+				Date: "2026-06-01", Hijri: domain.HijriDate{Year: 1447, Month: 12, Day: 9}, IsPilgrimAtArafah: true,
 			},
-			wantVerdict: fasting.VerdictOptional,
+			wantVerdict: domain.VerdictOptional,
 		},
 		{
 			name: "tashriq suppresses a white day recommendation",
-			request: fasting.ClassificationRequest{
-				Date: "2026-05-30", Hijri: fasting.HijriDate{Year: 1447, Month: 12, Day: 13},
+			request: domain.ClassificationRequest{
+				Date: "2026-05-30", Hijri: domain.HijriDate{Year: 1447, Month: 12, Day: 13},
 			},
-			wantVerdict:      fasting.VerdictProhibited,
+			wantVerdict:      domain.VerdictProhibited,
 			wantRestrictions: []string{"days_of_tashriq"},
 		},
 	}
@@ -80,10 +80,10 @@ func TestClassify(t *testing.T) {
 func TestClassifyRejectsInvalidInput(t *testing.T) {
 	t.Parallel()
 
-	_, err := newCalendarUsecase(t).Classify(context.Background(), fasting.ClassificationRequest{
-		Date: "25-06-2026", Hijri: fasting.HijriDate{Year: 1448, Month: 1, Day: 10},
+	_, err := newCalendarUsecase(t).Classify(context.Background(), domain.ClassificationRequest{
+		Date: "25-06-2026", Hijri: domain.HijriDate{Year: 1448, Month: 1, Day: 10},
 	})
-	if !errors.Is(err, fasting.ErrInvalidRequest) {
+	if !errors.Is(err, domain.ErrInvalidRequest) {
 		t.Fatalf("Classify() error = %v, want ErrInvalidRequest", err)
 	}
 }
@@ -91,25 +91,36 @@ func TestClassifyRejectsInvalidInput(t *testing.T) {
 func TestNewFastingUsecaseRequiresCalendars(t *testing.T) {
 	t.Parallel()
 
-	indonesiaCalendar, err := fastingrepository.NewKemenagCalendar()
+	indonesiaCalendar, err := fastingRepository.NewKemenagCalendar()
 	if err != nil {
 		t.Fatal(err)
 	}
-	ummAlQuraCalendar := fastingrepository.NewUmmAlQuraCalendar()
+
+	ummAlQuraCalendar := fastingRepository.NewUmmAlQuraCalendar()
 	tests := []struct {
 		name      string
-		indonesia fasting.CalendarRepository
-		ummAlQura fasting.CalendarRepository
+		indonesia domain.CalendarRepository
+		ummAlQura domain.CalendarRepository
 		want      error
 	}{
-		{name: "nil Indonesia calendar", ummAlQura: ummAlQuraCalendar, want: errIndonesiaCalendarRequired},
-		{name: "nil Umm al-Qura calendar", indonesia: indonesiaCalendar, want: errUmmAlQuraCalendarRequired},
+		{
+			name:      "nil Indonesia calendar",
+			ummAlQura: ummAlQuraCalendar,
+			want:      errIndonesiaCalendarRequired,
+		},
+		{
+			name:      "nil Umm al-Qura calendar",
+			indonesia: indonesiaCalendar,
+			want:      errUmmAlQuraCalendarRequired,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			service, err := NewFastingUsecase(tt.indonesia, tt.ummAlQura)
+
 			if service != nil {
 				t.Errorf("NewFastingUsecase() service = %#v, want nil", service)
 			}
@@ -120,7 +131,7 @@ func TestNewFastingUsecaseRequiresCalendars(t *testing.T) {
 	}
 }
 
-func assertKeys(t *testing.T, occurrences []fasting.Occurrence, want []string) {
+func assertKeys(t *testing.T, occurrences []domain.Occurrence, want []string) {
 	t.Helper()
 	if len(occurrences) != len(want) {
 		t.Fatalf("occurrence count = %d, want %d: %#v", len(occurrences), len(want), occurrences)
@@ -136,13 +147,22 @@ func TestRulesExposeFilterKeysInBothLanguages(t *testing.T) {
 	t.Parallel()
 
 	service := newCalendarUsecase(t)
+	filterKeys := []string{
+		"monday_thursday",
+		"white_days",
+		"ashura",
+		"six_shawwal_candidate",
+		"first_nine_dhul_hijjah",
+		"arafah",
+	}
 
-	for _, language := range []fasting.Language{fasting.LanguageEnglish, fasting.LanguageIndonesian} {
-		rules := make(map[string]fasting.Rule)
+	for _, language := range []domain.Language{domain.LanguageEnglish, domain.LanguageIndonesian} {
+		rules := make(map[string]domain.Rule)
 		for _, rule := range service.Rules(context.Background(), language) {
 			rules[rule.Key] = rule
 		}
-		for _, key := range []string{"monday_thursday", "white_days", "ashura", "six_shawwal_candidate", "first_nine_dhul_hijjah", "arafah"} {
+
+		for _, key := range filterKeys {
 			if _, ok := rules[key]; !ok {
 				t.Errorf("%s rules missing schedule filter key %q", language, key)
 			}

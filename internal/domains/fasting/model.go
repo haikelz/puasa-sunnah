@@ -125,6 +125,8 @@ type CalendarSource struct {
 	Publications  []CalendarPublication `json:"publications"`
 }
 
+// CalendarPublication is one document, such as a yearly Kemenag PDF, behind a
+// calendar's dates.
 type CalendarPublication struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`

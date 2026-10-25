@@ -3,18 +3,17 @@ package usecase
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
-	"puasa-sunnah/internal/domains/fasting"
-	fastingrepository "puasa-sunnah/internal/domains/fasting/repository"
+	domain "puasa-sunnah/internal/domains/fasting"
+	fastingRepository "puasa-sunnah/internal/domains/fasting/repository"
 )
 
 func TestScheduleWeek(t *testing.T) {
 	t.Parallel()
 
-	got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-		Period: fasting.SchedulePeriodWeek,
+	got, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+		Period: domain.SchedulePeriodWeek,
 		Date:   "2026-08-09",
 	})
 	if err != nil {
@@ -26,7 +25,7 @@ func TestScheduleWeek(t *testing.T) {
 	if got.WeekStartsOn != "Monday" {
 		t.Errorf("WeekStartsOn = %q, want Monday", got.WeekStartsOn)
 	}
-	if got.Calendar != fasting.CalendarIndonesia {
+	if got.Calendar != domain.CalendarIndonesia {
 		t.Errorf("Calendar = %q, want id", got.Calendar)
 	}
 	assertScheduleDates(t, got.Dates, []string{"2026-08-03", "2026-08-06"})
@@ -35,8 +34,8 @@ func TestScheduleWeek(t *testing.T) {
 func TestScheduleMonthIncludesWhiteDaysAndOverlaps(t *testing.T) {
 	t.Parallel()
 
-	got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-		Period: fasting.SchedulePeriodMonth,
+	got, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+		Period: domain.SchedulePeriodMonth,
 		Date:   "2026-08-09",
 	})
 	if err != nil {
@@ -57,8 +56,8 @@ func TestScheduleMonthIncludesWhiteDaysAndOverlaps(t *testing.T) {
 func TestScheduleYearSuppressesRestrictedDates(t *testing.T) {
 	t.Parallel()
 
-	got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-		Period: fasting.SchedulePeriodYear,
+	got, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+		Period: domain.SchedulePeriodYear,
 		Date:   "2026-08-09",
 	})
 	if err != nil {
@@ -77,39 +76,55 @@ func TestScheduleYearSuppressesRestrictedDates(t *testing.T) {
 func TestScheduleIndonesia2027(t *testing.T) {
 	t.Parallel()
 
-	for _, language := range []fasting.Language{fasting.LanguageEnglish, fasting.LanguageIndonesian} {
-		got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-			Period:   fasting.SchedulePeriodYear,
+	// Arafah 9 Zulhijah 1448, Ashura 10 Muharam 1449, Ayyamul Bidh 13 Syaban 1448.
+	recommended := []string{
+		"2027-05-16",
+		"2027-06-15",
+		"2027-01-21",
+	}
+	// Ramadan Monday, Idulfitri, Iduladha, and Tasyrik.
+	prohibited := []string{
+		"2027-02-08",
+		"2027-03-10",
+		"2027-05-17",
+		"2027-05-18",
+		"2027-05-19",
+		"2027-05-20",
+	}
+
+	for _, language := range []domain.Language{domain.LanguageEnglish, domain.LanguageIndonesian} {
+		got, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+			Period:   domain.SchedulePeriodYear,
 			Date:     "2027-08-09",
 			Language: language,
 		})
 		if err != nil {
 			t.Fatalf("%s Schedule() error = %v", language, err)
 		}
+
 		if got.CalendarSource.Publications[0].ID != "kemenag-ri-2027" {
 			t.Errorf("%s publications = %+v, want kemenag-ri-2027", language, got.CalendarSource.Publications)
 		}
-		// Arafah 9 Zulhijah 1448, Ashura 10 Muharam 1449, Ayyamul Bidh 13 Syaban 1448.
-		for _, recommended := range []string{"2027-05-16", "2027-06-15", "2027-01-21"} {
-			if !hasScheduleDate(got.Dates, recommended) {
-				t.Errorf("%s 2027 schedule is missing %s", language, recommended)
+		for _, date := range recommended {
+			if !hasScheduleDate(got.Dates, date) {
+				t.Errorf("%s 2027 schedule is missing %s", language, date)
 			}
 		}
-		// Ramadan Monday, Idulfitri, Iduladha, and Tasyrik.
-		for _, prohibited := range []string{"2027-02-08", "2027-03-10", "2027-05-17", "2027-05-18", "2027-05-19", "2027-05-20"} {
-			if hasScheduleDate(got.Dates, prohibited) {
-				t.Errorf("%s 2027 schedule contains %s", language, prohibited)
+		for _, date := range prohibited {
+			if hasScheduleDate(got.Dates, date) {
+				t.Errorf("%s 2027 schedule contains %s", language, date)
 			}
 		}
 	}
 
-	week, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-		Period: fasting.SchedulePeriodWeek,
+	week, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+		Period: domain.SchedulePeriodWeek,
 		Date:   "2026-12-31",
 	})
 	if err != nil {
 		t.Fatalf("cross-year week Schedule() error = %v", err)
 	}
+
 	if len(week.CalendarSource.Publications) != 2 {
 		t.Errorf("cross-year week publications = %+v, want 2026 and 2027", week.CalendarSource.Publications)
 	}
@@ -119,28 +134,37 @@ func TestScheduleRejectsUnsupportedYear(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		language fasting.Language
-		calendar fasting.Calendar
-		date     string
-		wantHint string
+		calendar        domain.Calendar
+		date            string
+		wantCoverageEnd string
 	}{
-		{fasting.LanguageEnglish, fasting.CalendarIndonesia, "2028-08-09", "for other dates, calendar=umm-al-qura"},
-		{fasting.LanguageIndonesian, fasting.CalendarIndonesia, "2028-08-09", "untuk tanggal lain, calendar=umm-al-qura"},
-		{fasting.LanguageEnglish, fasting.CalendarUmmAlQura, "2100-08-09", ""},
+		{
+			calendar:        domain.CalendarIndonesia,
+			date:            "2028-08-09",
+			wantCoverageEnd: "2027-12-31",
+		},
+		{
+			calendar:        domain.CalendarUmmAlQura,
+			date:            "2100-08-09",
+			wantCoverageEnd: "2077-11-16",
+		},
 	}
+
 	for _, tt := range tests {
-		_, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-			Period:   fasting.SchedulePeriodYear,
+		_, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+			Period:   domain.SchedulePeriodYear,
 			Date:     tt.date,
-			Language: tt.language,
 			Calendar: tt.calendar,
 		})
-		if !errors.Is(err, fasting.ErrCalendarUnavailable) {
-			t.Fatalf("%s/%s Schedule() error = %v, want ErrCalendarUnavailable", tt.language, tt.calendar, err)
-		}
-		hasHint := strings.Contains(err.Error(), "umm-al-qura")
-		if tt.wantHint == "" && hasHint || tt.wantHint != "" && !strings.Contains(err.Error(), tt.wantHint) {
-			t.Errorf("%s/%s error = %q, want hint %q", tt.language, tt.calendar, err, tt.wantHint)
+
+		var requestError *domain.RequestError
+		isCoverageError := errors.Is(err, domain.ErrCalendarUnavailable) &&
+			errors.As(err, &requestError) &&
+			requestError.Code == domain.CodeOutsideCoverage &&
+			requestError.Calendar == tt.calendar &&
+			requestError.CoverageEnd == tt.wantCoverageEnd
+		if !isCoverageError {
+			t.Errorf("%s Schedule() error = %#v, want coverage error ending %s", tt.calendar, err, tt.wantCoverageEnd)
 		}
 	}
 }
@@ -148,15 +172,15 @@ func TestScheduleRejectsUnsupportedYear(t *testing.T) {
 func TestScheduleUmmAlQuraSupports2027(t *testing.T) {
 	t.Parallel()
 
-	got, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-		Period:   fasting.SchedulePeriodYear,
+	got, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+		Period:   domain.SchedulePeriodYear,
 		Date:     "2027-08-09",
-		Calendar: fasting.CalendarUmmAlQura,
+		Calendar: domain.CalendarUmmAlQura,
 	})
 	if err != nil {
 		t.Fatalf("Schedule() error = %v", err)
 	}
-	if got.Calendar != fasting.CalendarUmmAlQura || got.CalendarSource.ID != "umm-al-qura" {
+	if got.Calendar != domain.CalendarUmmAlQura || got.CalendarSource.ID != "umm-al-qura" {
 		t.Errorf("calendar/source = %q/%q, want umm-al-qura/umm-al-qura", got.Calendar, got.CalendarSource.ID)
 	}
 	if got.Total == 0 {
@@ -167,35 +191,38 @@ func TestScheduleUmmAlQuraSupports2027(t *testing.T) {
 func TestScheduleRejectsUnsupportedCalendar(t *testing.T) {
 	t.Parallel()
 
-	_, err := newCalendarUsecase(t).Schedule(context.Background(), fasting.ScheduleRequest{
-		Period:   fasting.SchedulePeriodMonth,
+	_, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+		Period:   domain.SchedulePeriodMonth,
 		Date:     "2026-08-09",
 		Calendar: "other",
 	})
-	if !errors.Is(err, fasting.ErrInvalidRequest) {
+	if !errors.Is(err, domain.ErrInvalidRequest) {
 		t.Fatalf("Schedule() error = %v, want ErrInvalidRequest", err)
 	}
 }
 
 func newCalendarUsecase(t *testing.T) *FastingUsecase {
 	t.Helper()
-	kemenagCalendar, err := fastingrepository.NewKemenagCalendar()
+
+	kemenagCalendar, err := fastingRepository.NewKemenagCalendar()
 	if err != nil {
 		t.Fatalf("NewKemenagCalendar() error = %v", err)
 	}
-	service, err := NewFastingUsecase(kemenagCalendar, fastingrepository.NewUmmAlQuraCalendar())
+
+	service, err := NewFastingUsecase(kemenagCalendar, fastingRepository.NewUmmAlQuraCalendar())
 	if err != nil {
 		t.Fatalf("NewFastingUsecase() error = %v", err)
 	}
+
 	return service
 }
 
 func TestScheduleTypeFilter(t *testing.T) {
 	t.Parallel()
 
-	for _, language := range []fasting.Language{fasting.LanguageEnglish, fasting.LanguageIndonesian} {
+	for _, language := range []domain.Language{domain.LanguageEnglish, domain.LanguageIndonesian} {
 		service := newCalendarUsecase(t)
-		request := fasting.ScheduleRequest{Period: fasting.SchedulePeriodMonth, Date: "2026-08-09", Types: []string{"white_days", "white_days"}, Language: language}
+		request := domain.ScheduleRequest{Period: domain.SchedulePeriodMonth, Date: "2026-08-09", Types: []string{"white_days", "white_days"}, Language: language}
 		got, err := service.Schedule(context.Background(), request)
 		if err != nil {
 			t.Fatal(err)
@@ -224,7 +251,7 @@ func TestScheduleTypeFilter(t *testing.T) {
 		}
 
 		request.Types = []string{"white_days", "invalid"}
-		if _, err := service.Schedule(context.Background(), request); !errors.Is(err, fasting.ErrInvalidRequest) {
+		if _, err := service.Schedule(context.Background(), request); !errors.Is(err, domain.ErrInvalidRequest) {
 			t.Fatalf("invalid types error = %v", err)
 		}
 
@@ -240,7 +267,7 @@ func TestScheduleTypeFilter(t *testing.T) {
 	}
 }
 
-func assertScheduleDates(t *testing.T, dates []fasting.ScheduleDate, want []string) {
+func assertScheduleDates(t *testing.T, dates []domain.ScheduleDate, want []string) {
 	t.Helper()
 	if len(dates) != len(want) {
 		t.Fatalf("schedule date count = %d, want %d: %#v", len(dates), len(want), dates)
@@ -252,7 +279,7 @@ func assertScheduleDates(t *testing.T, dates []fasting.ScheduleDate, want []stri
 	}
 }
 
-func hasScheduleDate(dates []fasting.ScheduleDate, wanted string) bool {
+func hasScheduleDate(dates []domain.ScheduleDate, wanted string) bool {
 	for _, date := range dates {
 		if date.Date == wanted {
 			return true

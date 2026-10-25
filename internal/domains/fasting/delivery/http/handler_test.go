@@ -6,13 +6,14 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"puasa-sunnah/internal/domains/fasting"
+	domain "puasa-sunnah/internal/domains/fasting"
 )
 
 func TestNewHandlerRequiresUsecase(t *testing.T) {
 	t.Parallel()
 
 	handler, err := NewHandler(nil)
+
 	if handler != nil {
 		t.Errorf("NewHandler() handler = %#v, want nil", handler)
 	}
@@ -23,9 +24,9 @@ func TestNewHandlerRequiresUsecase(t *testing.T) {
 
 func TestCalendarTextEncoding(t *testing.T) {
 	t.Parallel()
-	schedule := fasting.Schedule{
-		Calendar: fasting.CalendarIndonesia,
-		Dates:    []fasting.ScheduleDate{{Date: "2026-12-31", Recommendations: []fasting.Occurrence{{Name: "A,B;C\\D\n" + strings.Repeat("é", 80)}}}},
+	schedule := domain.Schedule{
+		Calendar: domain.CalendarIndonesia,
+		Dates:    []domain.ScheduleDate{{Date: "2026-12-31", Recommendations: []domain.Occurrence{{Name: "A,B;C\\D\n" + strings.Repeat("é", 80)}}}},
 	}
 	encoded := scheduleICS(schedule)
 	for _, line := range strings.Split(encoded, "\r\n") {

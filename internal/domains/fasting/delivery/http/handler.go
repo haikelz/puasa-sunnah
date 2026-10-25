@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	domain "puasa-sunnah/internal/domains/fasting"
 
-	"puasa-sunnah/internal/domains/fasting"
+	"github.com/gofiber/fiber/v2"
 )
 
 type Handler struct {
-	usecase fasting.Usecase
+	usecase domain.Usecase
 }
 
 var errUsecaseRequired = errors.New("fasting usecase is required")
@@ -25,11 +25,19 @@ const (
 	cacheToday = "public, max-age=300, s-maxage=300"
 )
 
-func NewHandler(usecase fasting.Usecase) (*Handler, error) {
+const (
+	formatJSON = "json"
+	formatICS  = "ics"
+)
+
+func NewHandler(usecase domain.Usecase) (*Handler, error) {
 	if usecase == nil {
 		return nil, errUsecaseRequired
 	}
-	return &Handler{usecase: usecase}, nil
+
+	return &Handler{
+		usecase: usecase,
+	}, nil
 }
 
 func (h *Handler) Register(router fiber.Router) {
@@ -75,50 +83,38 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 // @Router /api/{language}/fasting/schedules [get]
 func (h *Handler) schedule(c *fiber.Ctx) error {
 	language := requestLanguage(c)
-	format := c.Query("format", "json")
-	if format != "json" && format != "ics" {
-		message := "format must be json or ics"
-		if language == fasting.LanguageIndonesian {
-			message = "format harus bernilai json atau ics"
-		}
-		return fiber.NewError(fiber.StatusBadRequest, message)
+
+	format := c.Query("format", formatJSON)
+	if format != formatJSON && format != formatICS {
+		return badRequest(
+			language,
+			"format must be json or ics",
+			"format harus bernilai json atau ics",
+		)
 	}
+
 	var types []string
 	if c.Query("types") != "" {
 		for _, key := range strings.Split(c.Query("types"), ",") {
 			types = append(types, strings.TrimSpace(key))
 		}
 	}
-	isPilgrim := false
-	if value := c.Query("is_pilgrim_at_arafah"); value != "" {
-		parsed, err := strconv.ParseBool(value)
-		if err != nil {
-			message := "is_pilgrim_at_arafah must be true or false"
-			if language == fasting.LanguageIndonesian {
-				message = "is_pilgrim_at_arafah harus bernilai true atau false"
-			}
-			return fiber.NewError(fiber.StatusBadRequest, message)
-		}
-		isPilgrim = parsed
+
+	isPilgrim, err := parsePilgrim(c, language)
+	if err != nil {
+		return err
 	}
 
-	result, err := h.usecase.Schedule(c.UserContext(), fasting.ScheduleRequest{
-		Period:            fasting.SchedulePeriod(c.Query("period")),
+	res, err := h.usecase.Schedule(c.UserContext(), domain.ScheduleRequest{
+		Period:            domain.SchedulePeriod(c.Query("period")),
 		Date:              c.Query("date"),
 		IsPilgrimAtArafah: isPilgrim,
 		Language:          language,
-		Calendar:          fasting.Calendar(c.Query("calendar")),
+		Calendar:          domain.Calendar(c.Query("calendar")),
 		Types:             types,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, fasting.ErrInvalidRequest):
-			return fiber.NewError(fiber.StatusBadRequest, clientErrorMessage(err, fasting.ErrInvalidRequest))
-		case errors.Is(err, fasting.ErrCalendarUnavailable):
-			return fiber.NewError(fiber.StatusUnprocessableEntity, clientErrorMessage(err, fasting.ErrCalendarUnavailable))
-		default:
-			return err
-		}
+		return usecaseError(err, language)
 	}
 
 	cacheControl := cacheFixedDate
@@ -127,12 +123,13 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 	}
 	c.Set(fiber.HeaderCacheControl, cacheControl)
 
-	if format == "ics" {
+	if format == formatICS {
 		c.Set(fiber.HeaderContentType, "text/calendar; charset=utf-8")
 		c.Set(fiber.HeaderContentDisposition, "attachment; filename=puasa-sunnah.ics")
-		return c.SendString(scheduleICS(result))
+		return c.SendString(scheduleICS(res))
 	}
-	return c.JSON(fiber.Map{"data": result})
+
+	return c.JSON(fiber.Map{"data": res})
 }
 
 // classify godoc
@@ -149,39 +146,59 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 // @Router /api/{language}/fasting/classify [post]
 func (h *Handler) classify(c *fiber.Ctx) error {
 	language := requestLanguage(c)
-	var request fasting.ClassificationRequest
+	var req domain.ClassificationRequest
 	// Decode JSON directly; BodyParser would also accept form and XML bodies.
-	if err := json.Unmarshal(c.Body(), &request); err != nil {
-		message := "body must be valid JSON"
-		if language == fasting.LanguageIndonesian {
-			message = "body harus berupa JSON yang valid"
-		}
-		return fiber.NewError(fiber.StatusBadRequest, message)
+	if err := json.Unmarshal(c.Body(), &req); err != nil {
+		return badRequest(
+			language,
+			"body must be valid JSON",
+			"body harus berupa JSON yang valid",
+		)
 	}
-	request.Language = language
+	req.Language = language
 
-	result, err := h.usecase.Classify(c.UserContext(), request)
+	res, err := h.usecase.Classify(c.UserContext(), req)
 	if err != nil {
-		if errors.Is(err, fasting.ErrInvalidRequest) {
-			return fiber.NewError(fiber.StatusBadRequest, clientErrorMessage(err, fasting.ErrInvalidRequest))
-		}
-		return err
+		return usecaseError(err, language)
 	}
 
-	return c.JSON(fiber.Map{"data": result})
+	return c.JSON(fiber.Map{"data": res})
+}
+
+func parsePilgrim(c *fiber.Ctx, language domain.Language) (bool, error) {
+	value := c.Query("is_pilgrim_at_arafah")
+	if value == "" {
+		return false, nil
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, badRequest(
+			language,
+			"is_pilgrim_at_arafah must be true or false",
+			"is_pilgrim_at_arafah harus bernilai true atau false",
+		)
+	}
+
+	return parsed, nil
+}
+
+func badRequest(
+	language domain.Language,
+	english string,
+	indonesian string,
+) error {
+	return fiber.NewError(fiber.StatusBadRequest, localized(language, english, indonesian))
 }
 
 func requireSupportedLanguage(c *fiber.Ctx) error {
 	if !requestLanguage(c).IsSupported() {
 		return fiber.ErrNotFound
 	}
+
 	return c.Next()
 }
 
-func requestLanguage(c *fiber.Ctx) fasting.Language {
-	return fasting.Language(c.Params("language"))
-}
-
-func clientErrorMessage(err, sentinel error) string {
-	return strings.TrimPrefix(err.Error(), sentinel.Error()+": ")
+func requestLanguage(c *fiber.Ctx) domain.Language {
+	return domain.Language(c.Params("language"))
 }

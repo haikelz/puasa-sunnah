@@ -11,10 +11,16 @@ import (
 	"strings"
 	"testing"
 
+	"puasa-sunnah/internal/config"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+)
 
-	"puasa-sunnah/internal/config"
+// Cache-Control values the fasting handler promises to the CDN.
+const (
+	wantCacheFixedDate = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
+	wantCacheToday     = "public, max-age=300, s-maxage=300"
 )
 
 func TestAPI(t *testing.T) {
@@ -89,35 +95,27 @@ func TestAPI(t *testing.T) {
 	})
 
 	t.Run("input normalization", func(t *testing.T) {
-		request, err := http.NewRequest(http.MethodGet, "/api/en/fasting/schedules?period=month&date=2026-08-09&types=white_days,%20arafah", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		response, err := server.Test(request)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_ = response.Body.Close()
-		if response.StatusCode != http.StatusOK {
-			t.Errorf("types with spaces status = %d, want %d", response.StatusCode, http.StatusOK)
+		spaced := sendRequest(
+			t,
+			server,
+			http.MethodGet,
+			"/api/en/fasting/schedules?period=month&date=2026-08-09&types=white_days,%20arafah",
+			"",
+		)
+		if spaced.status != http.StatusOK {
+			t.Errorf("types with spaces status = %d, want %d", spaced.status, http.StatusOK)
 		}
 
-		request, err = http.NewRequest(http.MethodPost, "/api/en/fasting/classify", strings.NewReader("date=2026-06-25"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		response, err = server.Test(request)
-		if err != nil {
-			t.Fatal(err)
-		}
-		body, err := io.ReadAll(response.Body)
-		_ = response.Body.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if response.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), "body must be valid JSON") {
-			t.Errorf("form classify status/body = %d/%s", response.StatusCode, body)
+		form := sendRequestWithType(
+			t,
+			server,
+			http.MethodPost,
+			"/api/en/fasting/classify",
+			"date=2026-06-25",
+			"application/x-www-form-urlencoded",
+		)
+		if form.status != http.StatusBadRequest || !strings.Contains(form.body, "body must be valid JSON") {
+			t.Errorf("form classify status/body = %d/%s", form.status, form.body)
 		}
 	})
 
@@ -126,26 +124,38 @@ func TestAPI(t *testing.T) {
 			path string
 			want string
 		}{
-			{"/api/en/fasting/schedules?period=month&date=2026-08-09", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"},
-			{"/api/en/fasting/schedules?period=month&date=2026-08-09&format=ics", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"},
+			{
+				path: "/api/en/fasting/schedules?period=month&date=2026-08-09",
+				want: wantCacheFixedDate,
+			},
+			{
+				path: "/api/en/fasting/schedules?period=month&date=2026-08-09&format=ics",
+				want: wantCacheFixedDate,
+			},
 			// No date means today; Umm al-Qura keeps this case inside coverage for decades.
-			{"/api/en/fasting/schedules?period=week&calendar=umm-al-qura", "public, max-age=300, s-maxage=300"},
-			{"/api/id/fasting/rules", "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"},
-			{"/api/en/fasting/schedules?period=decade&date=2026-08-09", "no-store"},
-			{"/health", "no-store"},
+			{
+				path: "/api/en/fasting/schedules?period=week&calendar=umm-al-qura",
+				want: wantCacheToday,
+			},
+			{
+				path: "/api/id/fasting/rules",
+				want: wantCacheFixedDate,
+			},
+			{
+				path: "/api/en/fasting/schedules?period=decade&date=2026-08-09",
+				want: cacheNoStore,
+			},
+			{
+				path: "/health",
+				want: cacheNoStore,
+			},
 		}
+
 		for _, tt := range tests {
-			request, err := http.NewRequest(http.MethodGet, tt.path, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			response, err := server.Test(request)
-			if err != nil {
-				t.Fatal(err)
-			}
-			_ = response.Body.Close()
-			if got := response.Header.Get("Cache-Control"); got != tt.want {
-				t.Errorf("GET %s Cache-Control = %q, want %q", tt.path, got, tt.want)
+			got := sendRequest(t, server, http.MethodGet, tt.path, "")
+
+			if got.cacheControl != tt.want {
+				t.Errorf("GET %s Cache-Control = %q, want %q", tt.path, got.cacheControl, tt.want)
 			}
 		}
 	})
@@ -225,7 +235,12 @@ func TestAPI(t *testing.T) {
 			t.Fatal(err)
 		}
 		source := payload.Data.CalendarSource
-		if payload.Data.Calendar != "id" || payload.Data.Total != 11 || source.ID != "kemenag-ri" || len(source.Publications) != 1 || source.Publications[0].ID != "kemenag-ri-2026" {
+		isExpected := payload.Data.Calendar == "id" &&
+			payload.Data.Total == 11 &&
+			source.ID == "kemenag-ri" &&
+			len(source.Publications) == 1 &&
+			source.Publications[0].ID == "kemenag-ri-2026"
+		if !isExpected {
 			t.Fatalf("schedule calendar/total/source = %q/%d/%+v, want id/11/kemenag-ri-2026", payload.Data.Calendar, payload.Data.Total, source)
 		}
 	})
@@ -342,27 +357,33 @@ func TestAPI(t *testing.T) {
 			wantStatus int
 			wantText   string
 		}{
-			{"/api/id/fasting/schedules?period=decade&date=2026-08-09", http.StatusBadRequest, "period harus bernilai"},
-			{"/api/id/fasting/schedules?period=year&date=2026-08-09&calendar=other", http.StatusBadRequest, "calendar harus bernilai"},
-			{"/api/id/fasting/schedules?period=year&date=2028-08-09", http.StatusUnprocessableEntity, "kalender hanya mencakup 2025-12-28 sampai 2027-12-31; untuk tanggal lain, calendar=umm-al-qura"},
-			{"/api/id/fasting/schedules?period=year&date=2027-08-09", http.StatusOK, "kemenag-ri-2027"},
+			{
+				path:       "/api/id/fasting/schedules?period=decade&date=2026-08-09",
+				wantStatus: http.StatusBadRequest,
+				wantText:   "period harus bernilai",
+			},
+			{
+				path:       "/api/id/fasting/schedules?period=year&date=2026-08-09&calendar=other",
+				wantStatus: http.StatusBadRequest,
+				wantText:   "calendar harus bernilai",
+			},
+			{
+				path:       "/api/id/fasting/schedules?period=year&date=2028-08-09",
+				wantStatus: http.StatusUnprocessableEntity,
+				wantText:   "kalender hanya mencakup 2025-12-28 sampai 2027-12-31; untuk tanggal lain, calendar=umm-al-qura",
+			},
+			{
+				path:       "/api/id/fasting/schedules?period=year&date=2027-08-09",
+				wantStatus: http.StatusOK,
+				wantText:   "kemenag-ri-2027",
+			},
 		}
+
 		for _, tt := range tests {
-			request, err := http.NewRequest(http.MethodGet, tt.path, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			response, err := server.Test(request)
-			if err != nil {
-				t.Fatal(err)
-			}
-			body, err := io.ReadAll(response.Body)
-			_ = response.Body.Close()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if response.StatusCode != tt.wantStatus || !strings.Contains(string(body), tt.wantText) {
-				t.Errorf("GET %s status/body = %d/%s", tt.path, response.StatusCode, body)
+			got := sendRequest(t, server, http.MethodGet, tt.path, "")
+
+			if got.status != tt.wantStatus || !strings.Contains(got.body, tt.wantText) {
+				t.Errorf("GET %s status/body = %d/%s", tt.path, got.status, got.body)
 			}
 		}
 	})
@@ -433,43 +454,63 @@ func TestAPI(t *testing.T) {
 func TestErrorHandling(t *testing.T) {
 	t.Parallel()
 
-	server := fiber.New(fiber.Config{ErrorHandler: errorHandler})
-	server.Use(accessLog, recover.New(), withRequestTimeout)
-	server.Get("/api/:language/internal", func(*fiber.Ctx) error { return errors.New("secret detail") })
+	server := fiber.New(fiber.Config{
+		ErrorHandler: errorHandler,
+	})
+	server.Use(
+		accessLog,
+		recover.New(),
+		withRequestTimeout,
+	)
+	server.Get("/api/:language/internal", func(*fiber.Ctx) error {
+		return errors.New("secret detail")
+	})
 	server.Get("/api/:language/timeout", func(c *fiber.Ctx) error {
 		if _, ok := c.UserContext().Deadline(); !ok {
 			return errors.New("request context has no deadline")
 		}
+
 		return context.DeadlineExceeded
 	})
-	server.Get("/api/:language/panic", func(*fiber.Ctx) error { panic("boom") })
+	server.Get("/api/:language/panic", func(*fiber.Ctx) error {
+		panic("boom")
+	})
 
 	tests := []struct {
 		path       string
 		wantStatus int
 		wantText   string
 	}{
-		{"/api/en/internal", http.StatusInternalServerError, "internal server error"},
-		{"/api/id/internal", http.StatusInternalServerError, "kesalahan internal server"},
-		{"/api/en/panic", http.StatusInternalServerError, "internal server error"},
-		{"/api/id/timeout", http.StatusServiceUnavailable, "permintaan melebihi batas waktu"},
+		{
+			path:       "/api/en/internal",
+			wantStatus: http.StatusInternalServerError,
+			wantText:   "internal server error",
+		},
+		{
+			path:       "/api/id/internal",
+			wantStatus: http.StatusInternalServerError,
+			wantText:   "kesalahan internal server",
+		},
+		{
+			path:       "/api/en/panic",
+			wantStatus: http.StatusInternalServerError,
+			wantText:   "internal server error",
+		},
+		{
+			path:       "/api/id/timeout",
+			wantStatus: http.StatusServiceUnavailable,
+			wantText:   "permintaan melebihi batas waktu",
+		},
 	}
+
 	for _, tt := range tests {
-		request, err := http.NewRequest(http.MethodGet, tt.path, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		response, err := server.Test(request)
-		if err != nil {
-			t.Fatal(err)
-		}
-		body, err := io.ReadAll(response.Body)
-		_ = response.Body.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if response.StatusCode != tt.wantStatus || !strings.Contains(string(body), tt.wantText) || strings.Contains(string(body), "secret") {
-			t.Errorf("GET %s status/body = %d/%s", tt.path, response.StatusCode, body)
+		got := sendRequest(t, server, http.MethodGet, tt.path, "")
+
+		isExpected := got.status == tt.wantStatus &&
+			strings.Contains(got.body, tt.wantText) &&
+			!strings.Contains(got.body, "secret")
+		if !isExpected {
+			t.Errorf("GET %s status/body = %d/%s", tt.path, got.status, got.body)
 		}
 	}
 }
@@ -481,12 +522,19 @@ func TestOversizedBodyKeepsServerAlive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() { _ = server.Listener(listener) }()
-	t.Cleanup(func() { _ = server.Shutdown() })
+
+	go func() {
+		// Listener returns once Shutdown runs in Cleanup; that error is expected.
+		_ = server.Listener(listener)
+	}()
+	t.Cleanup(func() {
+		_ = server.Shutdown()
+	})
 	baseURL := "http://" + listener.Addr().String()
 
 	body := strings.NewReader(`{"date":"` + strings.Repeat("a", bodyLimit) + `"}`)
@@ -495,6 +543,7 @@ func TestOversizedBodyKeepsServerAlive(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = response.Body.Close()
+
 	if response.StatusCode != http.StatusRequestEntityTooLarge {
 		t.Errorf("oversized body status = %d, want %d", response.StatusCode, http.StatusRequestEntityTooLarge)
 	}
@@ -504,4 +553,59 @@ func TestOversizedBodyKeepsServerAlive(t *testing.T) {
 		t.Fatalf("server died after oversized body: %v", err)
 	}
 	_ = response.Body.Close()
+}
+
+type testResponse struct {
+	status       int
+	cacheControl string
+	body         string
+}
+
+// sendRequest sends a JSON request through server.Test and reads the whole response.
+func sendRequest(
+	t *testing.T,
+	server *fiber.App,
+	method string,
+	path string,
+	body string,
+) testResponse {
+	t.Helper()
+
+	return sendRequestWithType(t, server, method, path, body, "application/json")
+}
+
+func sendRequestWithType(
+	t *testing.T,
+	server *fiber.App,
+	method string,
+	path string,
+	body string,
+	contentType string,
+) testResponse {
+	t.Helper()
+
+	request, err := http.NewRequest(method, path, strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", contentType)
+
+	response, err := server.Test(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	content, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return testResponse{
+		status:       response.StatusCode,
+		cacheControl: response.Header.Get("Cache-Control"),
+		body:         string(content),
+	}
 }

@@ -1,17 +1,17 @@
 package http
 
-import "puasa-sunnah/internal/domains/fasting"
+import domain "puasa-sunnah/internal/domains/fasting"
 
 type RulesResponse struct {
-	Data []fasting.Rule `json:"data"`
+	Data []domain.Rule `json:"data"`
 }
 
 type ScheduleResponse struct {
-	Data fasting.Schedule `json:"data"`
+	Data domain.Schedule `json:"data"`
 }
 
 type ClassificationResponse struct {
-	Data fasting.Classification `json:"data"`
+	Data domain.Classification `json:"data"`
 }
 
 type ErrorResponse struct {
