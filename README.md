@@ -72,7 +72,7 @@ Returns calculations, evidence links, and caveats, including rules that cannot b
 
 Rule keys for fixed-date recommendations match the recommendation keys that schedules emit and the `types` filter accepts.
 
-### Get a weekly, monthly, or yearly schedule
+### Get a schedule for a week, month, year, or range
 
 ```http
 GET /api/en/fasting/schedules?period=week&date=2026-08-09
@@ -82,17 +82,19 @@ GET /api/id/fasting/schedules?period=year&date=2026-08-09&calendar=id
 GET /api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura
 ```
 
-- `period` is required and must be `week`, `month`, or `year`.
-- `date` is an optional anchor in `YYYY-MM-DD`; it defaults to today in `Asia/Jakarta`.
+- `period` is required and must be `week`, `month`, `year`, or `range`.
+- `date` is an optional anchor in `YYYY-MM-DD` for `week`, `month`, and `year`; it defaults to today in `Asia/Jakarta`.
+- `period=range` takes `start` (defaults to today) plus either `end` or `days`, up to 366 days. `date` does not apply to a range, and `start`, `end`, and `days` apply only to a range; mixing them returns `400`.
 - `calendar` is optional and must be `id` or `umm-al-qura`; it defaults to `id`.
 - `types` optionally filters by comma-separated recommendation keys: `monday_thursday`, `white_days`, `ashura`, `six_shawwal_candidate`, `first_nine_dhul_hijjah`, or `arafah`. Matching is OR; only matching recommendations are returned, with overlapping dates deduplicated. Omitted/empty means all; unsupported keys return `400`.
-- Successful schedules and rules carry `Cache-Control` so Vercel's CDN serves repeats without running the function: one day at the CDN (one hour in browsers) for an explicit `date`, five minutes when `date` is omitted because the anchor is today. Vercel clears the CDN cache on each deploy, so a calendar data fix reaches the CDN immediately and browsers within an hour. Errors and `/health` send `no-store`.
+- Successful schedules and rules carry `Cache-Control` so Vercel's CDN serves repeats without running the function: one day at the CDN (one hour in browsers) for an explicit `date` or `start`, five minutes when the request is relative to today. Vercel clears the CDN cache on each deploy, so a calendar data fix reaches the CDN immediately and browsers within an hour. Errors and `/health` send `no-store`.
 - Requests that exceed the 5-second deadline return `503`. Every response carries an `X-Request-ID` header that matches the server log entry.
-- `format=json|ics` defaults to JSON. `ics` downloads an RFC 5545 calendar with one all-day event per matching date, localized titles, source URL, caveat, and disclaimer. Empty schedules export a valid calendar without events. Import into Google Calendar, Apple Calendar, or Outlook; this is a snapshot, not an automatic subscription or notification service.
+- `format=json|ics` defaults to JSON. `ics` downloads an RFC 5545 calendar with one all-day event per matching date, localized titles, source URL, caveat, and disclaimer. Empty schedules export a valid calendar without events. Import it into Google Calendar, Apple Calendar, or Outlook, or subscribe to a rolling feed (below). Each feed names itself "Puasa Sunnah" and asks apps to refresh daily.
+- `reminder=HH:MM` (ICS only) adds an alarm at that time on the evening before each fast, for example `20:00` for sahur preparation. Calendar apps decide whether to honor alarms in subscribed feeds.
 - Weeks run Monday through Sunday. Month and year use Gregorian boundaries.
 - Add `is_pilgrim_at_arafah=true` for the Arafah-specific pilgrim context.
 - Responses contain only recommended opportunities; obligatory Ramadan and prohibited Eid/Tashriq dates are suppressed.
-- Shawwal dates are labeled as **eligible candidates**. The API does not choose or track the six days for a person.
+- Shawwal dates are labeled as **eligible candidates**. Schedules never track the six days for a person; `POST /days/{date}` counts them from history the caller sends.
 
 Filter White Days or download them as a calendar:
 
@@ -101,7 +103,46 @@ GET /api/id/fasting/schedules?period=month&date=2026-08-09&types=white_days
 GET /api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura&types=white_days,monday_thursday&format=ics
 ```
 
-Filters never override Ramadan/Eid/Tashriq restrictions or calendar coverage. ICS events use stable IDs per calendar, audience, and date, with exclusive next-day end dates. No alarms are added automatically.
+Filters never override Ramadan/Eid/Tashriq restrictions or calendar coverage. ICS events use stable IDs per calendar, audience, and date, with exclusive next-day end dates. Alarms appear only when you pass `reminder`.
+
+Subscribe to a feed that always covers the next 90 days. Omitting `start` keeps it rolling, so the subscription never runs out:
+
+```http
+GET /api/id/fasting/schedules?period=range&days=90&format=ics&reminder=20:00
+GET /api/en/fasting/schedules?period=range&start=2027-03-01&end=2027-04-30&types=six_shawwal_candidate
+```
+
+Calendar apps subscribe over `webcal://` or by pasting the `https://` URL into "add calendar from URL".
+
+### Look up one date
+
+```http
+GET /api/id/fasting/days/today
+GET /api/en/fasting/days/2027-03-10?calendar=umm-al-qura
+```
+
+Returns the full classification for one Gregorian date: verdict, recommendations, **restrictions** (Ramadan, Eid, Tashriq), notes, and the Hijri date derived from the selected calendar with its source. Schedules drop restricted dates; this endpoint keeps them, so it answers "should I fast today?". `date` is `YYYY-MM-DD` or `today` (Asia/Jakarta). It accepts `calendar` and `is_pilgrim_at_arafah` like schedules.
+
+### Personal patterns
+
+Some sunnah patterns depend on what you fasted before. Send that history in a POST body to the same path:
+
+```http
+POST /api/en/fasting/days/2027-08-06
+Content-Type: application/json
+
+{ "fasting_dates": ["2027-08-04"], "observes_dawud": true }
+```
+
+`fasting_dates` lists days you fasted or plan to fast (at most 366); `observes_dawud` opts into the Dawud alternation. The response adds a `patterns` array, separate from the fixed-date recommendations:
+
+| Key | Statuses | When |
+| --- | --- | --- |
+| `six_shawwal_candidate` | `in_progress`, `complete` | The date is 2–30 Syawal. `progress` counts your recorded Syawal days toward 6. |
+| `dawud` | `fast_day`, `rest_day` | You set `observes_dawud`. The alternation rests the day after a recorded fast. |
+| `friday_alone` | `caution`, `paired`, `coincides` | The date is a Friday. `paired` means you fast the adjacent Thursday or Saturday; `coincides` means the Friday carries a fast you observe, such as Ayyamul Bidh or your Dawud day ([Sahih Muslim 1144b](https://sunnah.com/muslim:1144b)). |
+
+Ramadan, Eid, Tashriq, and a pilgrim at Arafah return no patterns: restrictions come first. Each pattern carries its evidence and, where scholars differ, a caveat. The API evaluates the history for that one request and never stores it; the response sends `Cache-Control: no-store`, and the history stays in the body rather than the URL so it stays out of CDN caches and access logs.
 
 Example for August 2026:
 
@@ -185,7 +226,7 @@ Run the API, then open:
 - Interactive Swagger UI: `http://localhost:8080/swagger/index.html`
 - Swagger JSON: `http://localhost:8080/swagger/doc.json`
 
-The UI documents health, rules, classification, and week/month/year schedule endpoints, including request bodies, query enums, response schemas, errors, and both calendar-source caveats. “Try it out” is enabled.
+The UI documents health, rules, classification, day lookup, personal patterns, and schedule endpoints, including request bodies, query enums, response schemas, errors, and both calendar-source caveats. “Try it out” is enabled.
 
 After changing routes, annotations, or API models, regenerate and commit all generated artifacts:
 
