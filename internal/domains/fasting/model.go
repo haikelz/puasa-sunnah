@@ -106,6 +106,11 @@ type ScheduleDate struct {
 	Notes           []string     `json:"notes"`
 }
 
+const (
+	CalendarStatusPublished  = "published_planning_calendar"
+	CalendarStatusCalculated = "calculated_planning_calendar"
+)
+
 // CalendarSource describes a calendar series. CoverageStart and CoverageEnd span
 // every supported date; Publications lists the documents behind the requested range.
 type CalendarSource struct {

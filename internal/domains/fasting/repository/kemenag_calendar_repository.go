@@ -11,7 +11,7 @@ import (
 	"sort"
 	"time"
 
-	"puasa-sunnah/internal/domains/fasting"
+	domain "puasa-sunnah/internal/domains/fasting"
 )
 
 // Each file transcribes one official Kemenag PDF. Add a year only from a
@@ -72,6 +72,7 @@ func loadKemenagCalendar(files fs.FS) (*KemenagCalendar, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", name, err)
 		}
+
 		publications = append(publications, publication)
 	}
 	sort.Slice(publications, func(i, j int) bool {
@@ -85,7 +86,11 @@ func loadKemenagCalendar(files fs.FS) (*KemenagCalendar, error) {
 	}
 	for _, publication := range publications[1:] {
 		if publication.coverageStart.After(calendar.coverageEnd.AddDate(0, 0, 1)) {
-			return nil, fmt.Errorf("coverage gap between %s and %s", calendar.coverageEnd.Format(time.DateOnly), publication.CoverageStart)
+			return nil, fmt.Errorf(
+				"coverage gap between %s and %s",
+				calendar.coverageEnd.Format(time.DateOnly),
+				publication.CoverageStart,
+			)
 		}
 		if publication.coverageEnd.After(calendar.coverageEnd) {
 			calendar.coverageEnd = publication.coverageEnd
@@ -96,10 +101,12 @@ func loadKemenagCalendar(files fs.FS) (*KemenagCalendar, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if calendar.starts[0].date.After(calendar.coverageStart) {
 		return nil, fmt.Errorf("no month start on or before %s", calendar.coverageStart.Format(time.DateOnly))
 	}
-	if lastLength := daysBetween(calendar.starts[len(calendar.starts)-1].date, calendar.coverageEnd) + 1; lastLength > 30 {
+	lastStart := calendar.starts[len(calendar.starts)-1].date
+	if lastLength := daysBetween(lastStart, calendar.coverageEnd) + 1; lastLength > 30 {
 		return nil, fmt.Errorf("coverage ends %d days into the last month", lastLength)
 	}
 
@@ -118,15 +125,23 @@ func readKemenagPublication(files fs.FS, name string) (kemenagPublication, error
 	if err := decoder.Decode(&publication); err != nil {
 		return kemenagPublication{}, err
 	}
-	if publication.Year < 1 || publication.ID == "" || publication.Name == "" || publication.URL == "" || len(publication.SHA256) != 64 || len(publication.MonthStarts) == 0 {
+	isIncomplete := publication.Year < 1 ||
+		publication.ID == "" ||
+		publication.Name == "" ||
+		publication.URL == "" ||
+		len(publication.SHA256) != 64 ||
+		len(publication.MonthStarts) == 0
+	if isIncomplete {
 		return kemenagPublication{}, errors.New("year, id, name, url, sha256, and month_starts are required")
 	}
 
-	if publication.coverageStart, err = time.Parse(time.DateOnly, publication.CoverageStart); err != nil {
-		return kemenagPublication{}, fmt.Errorf("coverage_start: %w", err)
+	publication.coverageStart, err = time.Parse(time.DateOnly, publication.CoverageStart)
+	if err != nil {
+		return kemenagPublication{}, fmt.Errorf("parse coverage_start: %w", err)
 	}
-	if publication.coverageEnd, err = time.Parse(time.DateOnly, publication.CoverageEnd); err != nil {
-		return kemenagPublication{}, fmt.Errorf("coverage_end: %w", err)
+	publication.coverageEnd, err = time.Parse(time.DateOnly, publication.CoverageEnd)
+	if err != nil {
+		return kemenagPublication{}, fmt.Errorf("parse coverage_end: %w", err)
 	}
 	if publication.coverageEnd.Before(publication.coverageStart) {
 		return kemenagPublication{}, errors.New("coverage_end precedes coverage_start")
@@ -143,16 +158,27 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 		for _, entry := range publication.MonthStarts {
 			date, err := time.Parse(time.DateOnly, entry.Date)
 			if err != nil {
-				return nil, fmt.Errorf("%s month start: %w", publication.ID, err)
+				return nil, fmt.Errorf("parse %s month start: %w", publication.ID, err)
 			}
 			if entry.Month < 1 || entry.Month > 12 || entry.Year < 1 {
-				return nil, fmt.Errorf("%s month start %s has invalid Hijri month %d/%d", publication.ID, entry.Date, entry.Month, entry.Year)
+				return nil, fmt.Errorf(
+					"%s month start %s has invalid Hijri month %d/%d",
+					publication.ID,
+					entry.Date,
+					entry.Month,
+					entry.Year,
+				)
 			}
 
-			start := monthStart{date: date, year: entry.Year, month: entry.Month}
+			start := monthStart{
+				date:  date,
+				year:  entry.Year,
+				month: entry.Month,
+			}
 			if existing, ok := byDate[date]; ok && existing != start {
 				return nil, fmt.Errorf("%s disagrees on the month starting %s", publication.ID, entry.Date)
 			}
+
 			byDate[date] = start
 		}
 	}
@@ -161,7 +187,9 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 	for _, start := range byDate {
 		starts = append(starts, start)
 	}
-	sort.Slice(starts, func(i, j int) bool { return starts[i].date.Before(starts[j].date) })
+	sort.Slice(starts, func(i, j int) bool {
+		return starts[i].date.Before(starts[j].date)
+	})
 
 	for i := 1; i < len(starts); i++ {
 		previous, current := starts[i-1], starts[i]
@@ -169,31 +197,48 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 		if wantMonth > 12 {
 			wantYear, wantMonth = wantYear+1, 1
 		}
+
 		if current.year != wantYear || current.month != wantMonth {
-			return nil, fmt.Errorf("month starting %s is %d/%d, want %d/%d", current.date.Format(time.DateOnly), current.month, current.year, wantMonth, wantYear)
+			return nil, fmt.Errorf(
+				"month starting %s is %d/%d, want %d/%d",
+				current.date.Format(time.DateOnly),
+				current.month,
+				current.year,
+				wantMonth,
+				wantYear,
+			)
 		}
 		if length := daysBetween(previous.date, current.date); length != 29 && length != 30 {
-			return nil, fmt.Errorf("month starting %s has %d days, want 29 or 30", previous.date.Format(time.DateOnly), length)
+			return nil, fmt.Errorf(
+				"month starting %s has %d days, want 29 or 30",
+				previous.date.Format(time.DateOnly),
+				length,
+			)
 		}
 	}
 
 	return starts, nil
 }
 
-func (c *KemenagCalendar) HijriDate(ctx context.Context, value time.Time) (fasting.HijriDate, error) {
+func (r *KemenagCalendar) HijriDate(ctx context.Context, value time.Time) (domain.HijriDate, error) {
 	if err := ctx.Err(); err != nil {
-		return fasting.HijriDate{}, err
+		return domain.HijriDate{}, err
 	}
 
 	value = date(value.Year(), value.Month(), value.Day())
-	if value.Before(c.coverageStart) || value.After(c.coverageEnd) {
-		return fasting.HijriDate{}, fmt.Errorf("%w: Kemenag calendars cover %s through %s", fasting.ErrDateOutsideCalendar, c.coverageStart.Format(time.DateOnly), c.coverageEnd.Format(time.DateOnly))
+	if value.Before(r.coverageStart) || value.After(r.coverageEnd) {
+		return domain.HijriDate{}, fmt.Errorf(
+			"%w: Kemenag calendars cover %s through %s",
+			domain.ErrDateOutsideCalendar,
+			r.coverageStart.Format(time.DateOnly),
+			r.coverageEnd.Format(time.DateOnly),
+		)
 	}
 
-	for i := len(c.starts) - 1; i >= 0; i-- {
-		start := c.starts[i]
+	for i := len(r.starts) - 1; i >= 0; i-- {
+		start := r.starts[i]
 		if !value.Before(start.date) {
-			return fasting.HijriDate{
+			return domain.HijriDate{
 				Year:  start.year,
 				Month: start.month,
 				Day:   daysBetween(start.date, value) + 1,
@@ -201,22 +246,27 @@ func (c *KemenagCalendar) HijriDate(ctx context.Context, value time.Time) (fasti
 		}
 	}
 
-	return fasting.HijriDate{}, fmt.Errorf("%w: no Kemenag month boundary for %s", fasting.ErrDateOutsideCalendar, value.Format(time.DateOnly))
+	return domain.HijriDate{}, fmt.Errorf(
+		"%w: no Kemenag month boundary for %s",
+		domain.ErrDateOutsideCalendar,
+		value.Format(time.DateOnly),
+	)
 }
 
-func (c *KemenagCalendar) Source(start, end time.Time) fasting.CalendarSource {
+func (r *KemenagCalendar) Source(start, end time.Time) domain.CalendarSource {
 	start = date(start.Year(), start.Month(), start.Day())
 	end = date(end.Year(), end.Month(), end.Day())
 
-	publications := make([]fasting.CalendarPublication, 0, 2)
+	publications := make([]domain.CalendarPublication, 0, 2)
 	seen := make(map[string]bool)
 	for year := start.Year(); year <= end.Year(); year++ {
-		publication, ok := c.publicationFor(year, start, end)
+		publication, ok := r.publicationFor(year, start, end)
 		if !ok || seen[publication.ID] {
 			continue
 		}
+
 		seen[publication.ID] = true
-		publications = append(publications, fasting.CalendarPublication{
+		publications = append(publications, domain.CalendarPublication{
 			ID:            publication.ID,
 			Name:          publication.Name,
 			URL:           publication.URL,
@@ -225,26 +275,31 @@ func (c *KemenagCalendar) Source(start, end time.Time) fasting.CalendarSource {
 		})
 	}
 
-	source := fasting.CalendarSource{
+	source := domain.CalendarSource{
 		ID:            "kemenag-ri",
 		Name:          "Kalender Hijriah Indonesia",
 		Publisher:     "Ditjen Bimbingan Masyarakat Islam, Kementerian Agama RI",
-		URL:           c.publications[len(c.publications)-1].URL,
-		CoverageStart: c.coverageStart.Format(time.DateOnly),
-		CoverageEnd:   c.coverageEnd.Format(time.DateOnly),
-		Status:        "published_planning_calendar",
+		URL:           r.publications[len(r.publications)-1].URL,
+		CoverageStart: r.coverageStart.Format(time.DateOnly),
+		CoverageEnd:   r.coverageEnd.Format(time.DateOnly),
+		Status:        domain.CalendarStatusPublished,
 		Publications:  publications,
 	}
 	if len(publications) > 0 {
 		source.URL = publications[0].URL
 	}
+
 	return source
 }
 
 // publicationFor prefers the PDF published for that Gregorian year; a
 // neighbouring year's PDF only answers for its few spill-over days.
-func (c *KemenagCalendar) publicationFor(year int, start, end time.Time) (kemenagPublication, bool) {
-	for _, publication := range c.publications {
+func (r *KemenagCalendar) publicationFor(
+	year int,
+	start time.Time,
+	end time.Time,
+) (kemenagPublication, bool) {
+	for _, publication := range r.publications {
 		if publication.Year == year {
 			return publication, true
 		}
@@ -252,11 +307,14 @@ func (c *KemenagCalendar) publicationFor(year int, start, end time.Time) (kemena
 
 	yearStart := maxTime(start, date(year, time.January, 1))
 	yearEnd := minTime(end, date(year, time.December, 31))
-	for _, publication := range c.publications {
-		if !publication.coverageStart.After(yearEnd) && !publication.coverageEnd.Before(yearStart) {
+	for _, publication := range r.publications {
+		overlaps := !publication.coverageStart.After(yearEnd) &&
+			!publication.coverageEnd.Before(yearStart)
+		if overlaps {
 			return publication, true
 		}
 	}
+
 	return kemenagPublication{}, false
 }
 
@@ -264,6 +322,7 @@ func maxTime(a, b time.Time) time.Time {
 	if a.After(b) {
 		return a
 	}
+
 	return b
 }
 
@@ -271,6 +330,7 @@ func minTime(a, b time.Time) time.Time {
 	if a.Before(b) {
 		return a
 	}
+
 	return b
 }
 

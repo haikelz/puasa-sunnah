@@ -1,23 +1,36 @@
 package repository
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
 
-	"puasa-sunnah/internal/domains/fasting"
+	domain "puasa-sunnah/internal/domains/fasting"
 )
 
 func newTestKemenagCalendar(t *testing.T) *KemenagCalendar {
 	t.Helper()
+
 	calendar, err := NewKemenagCalendar()
 	if err != nil {
 		t.Fatalf("NewKemenagCalendar() error = %v", err)
 	}
+
 	return calendar
+}
+
+func hijriDate(year, month, day int) domain.HijriDate {
+	return domain.HijriDate{
+		Year:  year,
+		Month: month,
+		Day:   day,
+	}
 }
 
 func TestKemenagCalendarHijriDate(t *testing.T) {
@@ -25,43 +38,106 @@ func TestKemenagCalendarHijriDate(t *testing.T) {
 
 	tests := []struct {
 		date string
-		want fasting.HijriDate
+		want domain.HijriDate
 	}{
-		{date: "2026-01-01", want: fasting.HijriDate{Year: 1447, Month: 7, Day: 12}},
-		{date: "2026-02-18", want: fasting.HijriDate{Year: 1447, Month: 8, Day: 30}},
-		{date: "2026-02-19", want: fasting.HijriDate{Year: 1447, Month: 9, Day: 1}},
-		{date: "2026-03-21", want: fasting.HijriDate{Year: 1447, Month: 10, Day: 1}},
-		{date: "2026-05-18", want: fasting.HijriDate{Year: 1447, Month: 12, Day: 1}},
-		{date: "2026-06-25", want: fasting.HijriDate{Year: 1448, Month: 1, Day: 10}},
-		{date: "2026-08-09", want: fasting.HijriDate{Year: 1448, Month: 2, Day: 25}},
-		{date: "2026-08-14", want: fasting.HijriDate{Year: 1448, Month: 3, Day: 1}},
-		{date: "2026-12-31", want: fasting.HijriDate{Year: 1448, Month: 7, Day: 22}},
+		{
+			date: "2026-01-01",
+			want: hijriDate(1447, 7, 12),
+		},
+		{
+			date: "2026-02-18",
+			want: hijriDate(1447, 8, 30),
+		},
+		{
+			date: "2026-02-19",
+			want: hijriDate(1447, 9, 1),
+		},
+		{
+			date: "2026-03-21",
+			want: hijriDate(1447, 10, 1),
+		},
+		{
+			date: "2026-05-18",
+			want: hijriDate(1447, 12, 1),
+		},
+		{
+			date: "2026-06-25",
+			want: hijriDate(1448, 1, 10),
+		},
+		{
+			date: "2026-08-09",
+			want: hijriDate(1448, 2, 25),
+		},
+		{
+			date: "2026-08-14",
+			want: hijriDate(1448, 3, 1),
+		},
+		{
+			date: "2026-12-31",
+			want: hijriDate(1448, 7, 22),
+		},
 		// Kalender Hijriah Indonesia Tahun 2027, read from the printed grid.
-		{date: "2027-01-01", want: fasting.HijriDate{Year: 1448, Month: 7, Day: 23}},
-		{date: "2027-01-08", want: fasting.HijriDate{Year: 1448, Month: 7, Day: 30}},
-		{date: "2027-01-09", want: fasting.HijriDate{Year: 1448, Month: 8, Day: 1}},
-		{date: "2027-02-08", want: fasting.HijriDate{Year: 1448, Month: 9, Day: 1}},
-		{date: "2027-03-09", want: fasting.HijriDate{Year: 1448, Month: 9, Day: 30}},
-		{date: "2027-03-10", want: fasting.HijriDate{Year: 1448, Month: 10, Day: 1}},
-		{date: "2027-05-17", want: fasting.HijriDate{Year: 1448, Month: 12, Day: 10}},
-		{date: "2027-06-06", want: fasting.HijriDate{Year: 1449, Month: 1, Day: 1}},
-		{date: "2027-08-15", want: fasting.HijriDate{Year: 1449, Month: 3, Day: 12}},
-		{date: "2027-12-26", want: fasting.HijriDate{Year: 1449, Month: 7, Day: 27}},
-		{date: "2027-12-31", want: fasting.HijriDate{Year: 1449, Month: 8, Day: 3}},
+		{
+			date: "2027-01-01",
+			want: hijriDate(1448, 7, 23),
+		},
+		{
+			date: "2027-01-08",
+			want: hijriDate(1448, 7, 30),
+		},
+		{
+			date: "2027-01-09",
+			want: hijriDate(1448, 8, 1),
+		},
+		{
+			date: "2027-02-08",
+			want: hijriDate(1448, 9, 1),
+		},
+		{
+			date: "2027-03-09",
+			want: hijriDate(1448, 9, 30),
+		},
+		{
+			date: "2027-03-10",
+			want: hijriDate(1448, 10, 1),
+		},
+		{
+			date: "2027-05-17",
+			want: hijriDate(1448, 12, 10),
+		},
+		{
+			date: "2027-06-06",
+			want: hijriDate(1449, 1, 1),
+		},
+		{
+			date: "2027-08-15",
+			want: hijriDate(1449, 3, 12),
+		},
+		{
+			date: "2027-12-26",
+			want: hijriDate(1449, 7, 27),
+		},
+		{
+			date: "2027-12-31",
+			want: hijriDate(1449, 8, 3),
+		},
 	}
 
 	calendar := newTestKemenagCalendar(t)
 	for _, tt := range tests {
 		t.Run(tt.date, func(t *testing.T) {
 			t.Parallel()
+
 			date, err := time.Parse(time.DateOnly, tt.date)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			got, err := calendar.HijriDate(context.Background(), date)
 			if err != nil {
 				t.Fatalf("HijriDate() error = %v", err)
 			}
+
 			if got != tt.want {
 				t.Errorf("HijriDate() = %+v, want %+v", got, tt.want)
 			}
@@ -73,9 +149,14 @@ func TestKemenagCalendarRejectsUnsupportedDate(t *testing.T) {
 	t.Parallel()
 
 	calendar := newTestKemenagCalendar(t)
-	for _, value := range []time.Time{date(2025, time.December, 27), date(2028, time.January, 1)} {
+	outside := []time.Time{
+		date(2025, time.December, 27),
+		date(2028, time.January, 1),
+	}
+
+	for _, value := range outside {
 		_, err := calendar.HijriDate(context.Background(), value)
-		if !errors.Is(err, fasting.ErrDateOutsideCalendar) {
+		if !errors.Is(err, domain.ErrDateOutsideCalendar) {
 			t.Errorf("HijriDate(%s) error = %v, want ErrDateOutsideCalendar", value.Format(time.DateOnly), err)
 		}
 	}
@@ -86,7 +167,9 @@ func TestKemenagCalendarHonorsCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
+
 	_, err := newTestKemenagCalendar(t).HijriDate(ctx, date(2026, time.January, 1))
+
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("HijriDate() error = %v, want context.Canceled", err)
 	}
@@ -96,16 +179,18 @@ func TestKemenagCalendarMonthBoundaries(t *testing.T) {
 	t.Parallel()
 
 	calendar := newTestKemenagCalendar(t)
+
 	for _, start := range calendar.starts {
 		if start.date.Before(calendar.coverageStart) {
 			continue
 		}
+
 		got, err := calendar.HijriDate(context.Background(), start.date)
 		if err != nil {
 			t.Fatalf("HijriDate(%s) error = %v", start.date.Format(time.DateOnly), err)
 		}
-		want := fasting.HijriDate{Year: start.year, Month: start.month, Day: 1}
-		if got != want {
+
+		if want := hijriDate(start.year, start.month, 1); got != want {
 			t.Errorf("HijriDate(%s) = %+v, want %+v", start.date.Format(time.DateOnly), got, want)
 		}
 	}
@@ -115,8 +200,10 @@ func TestKemenagCalendarMonthBoundaries(t *testing.T) {
 			t.Errorf("coverage endpoint %s rejected: %v", endpoint.Format(time.DateOnly), err)
 		}
 	}
-	if got := calendar.coverageStart.Format(time.DateOnly) + ".." + calendar.coverageEnd.Format(time.DateOnly); got != "2025-12-28..2027-12-31" {
-		t.Errorf("coverage = %s, want 2025-12-28..2027-12-31", got)
+
+	coverage := calendar.coverageStart.Format(time.DateOnly) + ".." + calendar.coverageEnd.Format(time.DateOnly)
+	if coverage != "2025-12-28..2027-12-31" {
+		t.Errorf("coverage = %s, want 2025-12-28..2027-12-31", coverage)
 	}
 }
 
@@ -125,64 +212,151 @@ func TestKemenagCalendarSourceNamesPublications(t *testing.T) {
 
 	calendar := newTestKemenagCalendar(t)
 	tests := []struct {
-		start, end time.Time
-		want       []string
+		start time.Time
+		end   time.Time
+		want  []string
 	}{
-		{date(2026, time.August, 1), date(2026, time.August, 31), []string{"kemenag-ri-2026"}},
-		{date(2027, time.January, 1), date(2027, time.December, 31), []string{"kemenag-ri-2027"}},
-		{date(2025, time.December, 29), date(2026, time.January, 4), []string{"kemenag-ri-2026"}},
-		{date(2026, time.December, 28), date(2027, time.January, 3), []string{"kemenag-ri-2026", "kemenag-ri-2027"}},
+		{
+			start: date(2026, time.August, 1),
+			end:   date(2026, time.August, 31),
+			want:  []string{"kemenag-ri-2026"},
+		},
+		{
+			start: date(2027, time.January, 1),
+			end:   date(2027, time.December, 31),
+			want:  []string{"kemenag-ri-2027"},
+		},
+		{
+			start: date(2025, time.December, 29),
+			end:   date(2026, time.January, 4),
+			want:  []string{"kemenag-ri-2026"},
+		},
+		{
+			start: date(2026, time.December, 28),
+			end:   date(2027, time.January, 3),
+			want:  []string{"kemenag-ri-2026", "kemenag-ri-2027"},
+		},
 	}
+
 	for _, tt := range tests {
 		source := calendar.Source(tt.start, tt.end)
+
 		got := make([]string, 0, len(source.Publications))
 		for _, publication := range source.Publications {
 			got = append(got, publication.ID)
 		}
+		span := tt.start.Format(time.DateOnly) + ".." + tt.end.Format(time.DateOnly)
 		if strings.Join(got, ",") != strings.Join(tt.want, ",") {
-			t.Errorf("Source(%s..%s) publications = %v, want %v", tt.start.Format(time.DateOnly), tt.end.Format(time.DateOnly), got, tt.want)
+			t.Errorf("Source(%s) publications = %v, want %v", span, got, tt.want)
 		}
 		if source.URL != source.Publications[0].URL || source.CoverageEnd != "2027-12-31" {
-			t.Errorf("Source(%s..%s) url/coverage = %s/%s", tt.start.Format(time.DateOnly), tt.end.Format(time.DateOnly), source.URL, source.CoverageEnd)
+			t.Errorf("Source(%s) url/coverage = %s/%s", span, source.URL, source.CoverageEnd)
 		}
 	}
+}
+
+func testPublication(
+	year int,
+	coverageStart string,
+	coverageEnd string,
+	starts ...kemenagMonthStart,
+) kemenagPublication {
+	return kemenagPublication{
+		Year:          year,
+		ID:            fmt.Sprintf("test-%d", year),
+		Name:          "test",
+		URL:           "https://example.test",
+		SHA256:        strings.Repeat("0", 64),
+		CoverageStart: coverageStart,
+		CoverageEnd:   coverageEnd,
+		MonthStarts:   starts,
+	}
+}
+
+func testMonthStart(date string, month int) kemenagMonthStart {
+	return kemenagMonthStart{
+		Date:  date,
+		Year:  1447,
+		Month: month,
+	}
+}
+
+func publicationFile(t *testing.T, publication kemenagPublication) *fstest.MapFile {
+	t.Helper()
+
+	content, err := json.Marshal(publication)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return &fstest.MapFile{Data: content}
 }
 
 func TestLoadKemenagCalendarRejectsInconsistentData(t *testing.T) {
 	t.Parallel()
 
-	const header = `"id":"x-%s","name":"x","url":"https://example.test","sha256":"` +
-		"0000000000000000000000000000000000000000000000000000000000000000" + `"`
-	publication := func(year, coverage, starts string) string {
-		return `{"year":` + year + `,` + strings.Replace(header, "%s", year, 1) + `,` + coverage + `,"month_starts":[` + starts + `]}`
+	valid := testPublication(
+		2026,
+		"2026-01-01",
+		"2026-01-31",
+		testMonthStart("2025-12-21", 7),
+		testMonthStart("2026-01-20", 8),
+	)
+	tests := map[string]kemenagPublication{
+		"month length": testPublication(
+			2027,
+			"2026-02-01",
+			"2026-02-10",
+			testMonthStart("2026-01-20", 8),
+			testMonthStart("2026-02-20", 9),
+		),
+		"conflicting boundary": testPublication(
+			2027,
+			"2026-02-01",
+			"2026-02-10",
+			testMonthStart("2026-01-20", 9),
+		),
+		"coverage gap": testPublication(
+			2027,
+			"2026-02-02",
+			"2026-02-10",
+			testMonthStart("2026-01-20", 8),
+		),
+		"skipped month": testPublication(
+			2027,
+			"2026-02-01",
+			"2026-02-10",
+			testMonthStart("2026-01-20", 8),
+			testMonthStart("2026-02-19", 10),
+		),
+		"last month too long": testPublication(
+			2027,
+			"2026-02-01",
+			"2026-02-25",
+			testMonthStart("2026-01-20", 8),
+		),
 	}
-	valid := publication("2026", `"coverage_start":"2026-01-01","coverage_end":"2026-01-31"`,
-		`{"date":"2025-12-21","hijri_year":1447,"hijri_month":7},{"date":"2026-01-20","hijri_year":1447,"hijri_month":8}`)
 
-	tests := map[string]string{
-		"month length": publication("2027", `"coverage_start":"2026-02-01","coverage_end":"2026-02-10"`,
-			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":8},{"date":"2026-02-20","hijri_year":1447,"hijri_month":9}`),
-		"conflicting boundary": publication("2027", `"coverage_start":"2026-02-01","coverage_end":"2026-02-10"`,
-			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":9}`),
-		"coverage gap": publication("2027", `"coverage_start":"2026-02-02","coverage_end":"2026-02-10"`,
-			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":8}`),
-		"skipped month": publication("2027", `"coverage_start":"2026-02-01","coverage_end":"2026-02-10"`,
-			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":8},{"date":"2026-02-19","hijri_year":1447,"hijri_month":10}`),
-		"last month too long": publication("2027", `"coverage_start":"2026-02-01","coverage_end":"2026-02-25"`,
-			`{"date":"2026-01-20","hijri_year":1447,"hijri_month":8}`),
-		"unknown field": strings.Replace(valid, `"year":2026`, `"year":2027,"extra":true`, 1),
+	validFiles := fstest.MapFS{
+		"kemenag/2026.json": publicationFile(t, valid),
 	}
-
-	if _, err := loadKemenagCalendar(fstest.MapFS{"kemenag/2026.json": {Data: []byte(valid)}}); err != nil {
+	if _, err := loadKemenagCalendar(validFiles); err != nil {
 		t.Fatalf("valid data rejected: %v", err)
 	}
+
 	for name, second := range tests {
 		files := fstest.MapFS{
-			"kemenag/2026.json": {Data: []byte(valid)},
-			"kemenag/2027.json": {Data: []byte(second)},
+			"kemenag/2026.json": publicationFile(t, valid),
+			"kemenag/2027.json": publicationFile(t, second),
 		}
 		if _, err := loadKemenagCalendar(files); err == nil {
 			t.Errorf("%s: loadKemenagCalendar() error = nil", name)
 		}
+	}
+
+	unknownField := publicationFile(t, valid)
+	unknownField.Data = bytes.Replace(unknownField.Data, []byte(`{"year":2026`), []byte(`{"year":2026,"extra":true`), 1)
+	if _, err := loadKemenagCalendar(fstest.MapFS{"kemenag/2026.json": unknownField}); err == nil {
+		t.Error("unknown field: loadKemenagCalendar() error = nil")
 	}
 }

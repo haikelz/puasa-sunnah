@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	hijri "github.com/hablullah/go-hijri"
+	domain "puasa-sunnah/internal/domains/fasting"
 
-	"puasa-sunnah/internal/domains/fasting"
+	hijri "github.com/hablullah/go-hijri"
 )
 
 const (
+	ummAlQuraID            = "umm-al-qura"
+	ummAlQuraName          = "Umm al-Qura Calendar"
+	ummAlQuraURL           = "https://webspace.science.uu.nl/~gent0113/islam/ummalqura.htm"
 	ummAlQuraCoverageStart = "1937-03-14"
 	ummAlQuraCoverageEnd   = "2077-11-16"
 )
@@ -21,43 +24,44 @@ func NewUmmAlQuraCalendar() *UmmAlQuraCalendar {
 	return &UmmAlQuraCalendar{}
 }
 
-func (c *UmmAlQuraCalendar) HijriDate(ctx context.Context, value time.Time) (fasting.HijriDate, error) {
+func (r *UmmAlQuraCalendar) HijriDate(ctx context.Context, value time.Time) (domain.HijriDate, error) {
 	if err := ctx.Err(); err != nil {
-		return fasting.HijriDate{}, err
+		return domain.HijriDate{}, err
 	}
 
 	date := time.Date(value.Year(), value.Month(), value.Day(), 12, 0, 0, 0, time.UTC)
 	converted, err := hijri.CreateUmmAlQuraDate(date)
 	if err != nil {
-		return fasting.HijriDate{}, fmt.Errorf("%w: Umm al-Qura covers %s through %s: %w", fasting.ErrDateOutsideCalendar, ummAlQuraCoverageStart, ummAlQuraCoverageEnd, err)
+		return domain.HijriDate{}, fmt.Errorf(
+			"%w: Umm al-Qura covers %s through %s: %w",
+			domain.ErrDateOutsideCalendar,
+			ummAlQuraCoverageStart,
+			ummAlQuraCoverageEnd,
+			err,
+		)
 	}
 
-	return fasting.HijriDate{
+	return domain.HijriDate{
 		Year:  int(converted.Year),
 		Month: int(converted.Month),
 		Day:   int(converted.Day),
 	}, nil
 }
 
-func (c *UmmAlQuraCalendar) Source(time.Time, time.Time) fasting.CalendarSource {
-	const (
-		name = "Umm al-Qura Calendar"
-		url  = "https://webspace.science.uu.nl/~gent0113/islam/ummalqura.htm"
-	)
-
-	return fasting.CalendarSource{
-		ID:            "umm-al-qura",
-		Name:          name,
+func (r *UmmAlQuraCalendar) Source(time.Time, time.Time) domain.CalendarSource {
+	return domain.CalendarSource{
+		ID:            ummAlQuraID,
+		Name:          ummAlQuraName,
 		Publisher:     "KACST calendar; conversion data compiled by R.H. van Gent",
-		URL:           url,
+		URL:           ummAlQuraURL,
 		CoverageStart: ummAlQuraCoverageStart,
 		CoverageEnd:   ummAlQuraCoverageEnd,
-		Status:        "calculated_planning_calendar",
-		Publications: []fasting.CalendarPublication{
+		Status:        domain.CalendarStatusCalculated,
+		Publications: []domain.CalendarPublication{
 			{
-				ID:            "umm-al-qura",
-				Name:          name,
-				URL:           url,
+				ID:            ummAlQuraID,
+				Name:          ummAlQuraName,
+				URL:           ummAlQuraURL,
 				CoverageStart: ummAlQuraCoverageStart,
 				CoverageEnd:   ummAlQuraCoverageEnd,
 			},

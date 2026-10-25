@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"puasa-sunnah/internal/domains/fasting"
+	domain "puasa-sunnah/internal/domains/fasting"
 )
 
 func TestUmmAlQuraCalendarHijriDate(t *testing.T) {
@@ -14,13 +14,13 @@ func TestUmmAlQuraCalendarHijriDate(t *testing.T) {
 
 	tests := []struct {
 		gregorian string
-		want      fasting.HijriDate
+		want      domain.HijriDate
 	}{
-		{"2026-02-18", fasting.HijriDate{Year: 1447, Month: 9, Day: 1}},
-		{"2026-03-20", fasting.HijriDate{Year: 1447, Month: 10, Day: 1}},
-		{"2026-06-16", fasting.HijriDate{Year: 1448, Month: 1, Day: 1}},
-		{"2027-02-08", fasting.HijriDate{Year: 1448, Month: 9, Day: 1}},
-		{"2027-06-06", fasting.HijriDate{Year: 1449, Month: 1, Day: 1}},
+		{"2026-02-18", domain.HijriDate{Year: 1447, Month: 9, Day: 1}},
+		{"2026-03-20", domain.HijriDate{Year: 1447, Month: 10, Day: 1}},
+		{"2026-06-16", domain.HijriDate{Year: 1448, Month: 1, Day: 1}},
+		{"2027-02-08", domain.HijriDate{Year: 1448, Month: 9, Day: 1}},
+		{"2027-06-06", domain.HijriDate{Year: 1449, Month: 1, Day: 1}},
 	}
 
 	calendar := NewUmmAlQuraCalendar()
@@ -50,7 +50,7 @@ func TestUmmAlQuraCalendarRejectsUnsupportedDate(t *testing.T) {
 		time.Date(2077, time.November, 17, 0, 0, 0, 0, time.UTC),
 	} {
 		_, err := calendar.HijriDate(context.Background(), value)
-		if !errors.Is(err, fasting.ErrDateOutsideCalendar) {
+		if !errors.Is(err, domain.ErrDateOutsideCalendar) {
 			t.Errorf("HijriDate(%s) error = %v, want ErrDateOutsideCalendar", value.Format(time.DateOnly), err)
 		}
 	}
