@@ -203,7 +203,7 @@ func rulesEnglish() []domain.Rule {
 			Key:         "six_shawwal_candidate",
 			Name:        "Six days of Shawwal",
 			Kind:        "recommended",
-			Calculation: "Any six days from 2 through the end of Shawwal; tracking completion belongs to the caller.",
+			Calculation: "Any six days from 2 through the end of Shawwal; POST /days/{date} counts the days a caller sends in fasting_dates.",
 			Evidence:    []string{"https://sunnah.com/muslim:1164a"},
 			Caveat:      "Schools differ on details such as consecutiveness and combining intentions.",
 		},
@@ -258,7 +258,7 @@ func rulesEnglish() []domain.Rule {
 			Kind:        "recommended_pattern",
 			Calculation: "Alternate one fasting day and one non-fasting day, subject to prohibited days.",
 			Evidence:    []string{"https://sunnah.com/bukhari:1976"},
-			Caveat:      "Requires personal history, so it is not emitted by stateless date classification.",
+			Caveat:      "Evaluated only by POST /days/{date} when the caller sets observes_dawud and sends recent fasting dates; the API never stores them.",
 		},
 		{
 			Key:         "eid",
@@ -280,8 +280,11 @@ func rulesEnglish() []domain.Rule {
 			Name:        "Friday alone",
 			Kind:        "conditional_caution",
 			Calculation: "Requires knowing adjacent fasting days and whether another established fast falls on Friday.",
-			Evidence:    []string{"https://sunnah.com/bukhari:1985"},
-			Caveat:      "Not emitted by stateless classification; ask a qualified scholar about individual circumstances.",
+			Evidence: []string{
+				"https://sunnah.com/bukhari:1985",
+				"https://sunnah.com/muslim:1144b",
+			},
+			Caveat: "Evaluated only by POST /days/{date} from the caller's fasting dates. A fast you customarily observe is excepted; ask a qualified scholar about individual circumstances.",
 		},
 	}
 }

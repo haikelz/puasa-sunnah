@@ -28,6 +28,7 @@ const (
 	CodeRangeNeedsEnd       = "range_needs_end"
 	CodeRangeEndBeforeStart = "range_end_before_start"
 	CodeRangeTooLong        = "range_too_long"
+	CodeHistoryTooLong      = "history_too_long"
 	CodeOutsideCoverage     = "outside_coverage"
 )
 

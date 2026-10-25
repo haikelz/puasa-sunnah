@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	domain "puasa-sunnah/internal/domains/fasting"
@@ -169,6 +170,34 @@ func TestRulesExposeFilterKeysInBothLanguages(t *testing.T) {
 		}
 		if rules["first_nine_dhul_hijjah"].Caveat == "" {
 			t.Errorf("%s first_nine_dhul_hijjah rule has no caveat", language)
+		}
+	}
+}
+
+func TestRulesDescribePersonalPatterns(t *testing.T) {
+	t.Parallel()
+
+	service := newCalendarUsecase(t)
+
+	for _, language := range []domain.Language{domain.LanguageEnglish, domain.LanguageIndonesian} {
+		rules := make(map[string]domain.Rule)
+		for _, rule := range service.Rules(context.Background(), language) {
+			rules[rule.Key] = rule
+		}
+
+		friday := rules[domain.PatternFridayAlone]
+		if !strings.Contains(strings.Join(friday.Evidence, " "), "muslim:1144b") {
+			t.Errorf("%s friday_alone evidence = %v, want Sahih Muslim 1144b", language, friday.Evidence)
+		}
+		descriptions := map[string]string{
+			domain.PatternSixShawwal:  rules[domain.PatternSixShawwal].Calculation,
+			domain.PatternDawud:       rules[domain.PatternDawud].Caveat,
+			domain.PatternFridayAlone: friday.Caveat,
+		}
+		for key, description := range descriptions {
+			if !strings.Contains(description, "POST /days/{date}") {
+				t.Errorf("%s %s does not point to POST /days/{date}: %q", language, key, description)
+			}
 		}
 	}
 }

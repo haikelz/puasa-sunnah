@@ -104,6 +104,12 @@ func requestErrorMessage(err *domain.RequestError, language domain.Language) str
 			"a range covers at most 366 days",
 			"rentang paling panjang 366 hari",
 		)
+	case domain.CodeHistoryTooLong:
+		return localized(
+			language,
+			"fasting_dates holds at most 366 dates",
+			"fasting_dates paling banyak berisi 366 tanggal",
+		)
 	case domain.CodeOutsideCoverage:
 		return coverageMessage(err, language)
 	default:

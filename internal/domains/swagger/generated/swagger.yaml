@@ -108,6 +108,10 @@ definitions:
         items:
           type: string
         type: array
+      patterns:
+        items:
+          $ref: '#/definitions/fasting.PatternStatus'
+        type: array
       recommendations:
         items:
           $ref: '#/definitions/fasting.Occurrence'
@@ -120,6 +124,18 @@ definitions:
         $ref: '#/definitions/fasting.Verdict'
       weekday:
         type: string
+    type: object
+  fasting.DtoFastingHistory:
+    properties:
+      fasting_dates:
+        example:
+        - "2027-08-05"
+        - "2027-08-07"
+        items:
+          type: string
+        type: array
+      observes_dawud:
+        type: boolean
     type: object
   fasting.HijriDate:
     properties:
@@ -148,6 +164,30 @@ definitions:
       key:
         type: string
       name:
+        type: string
+    type: object
+  fasting.PatternProgress:
+    properties:
+      recorded:
+        type: integer
+      target:
+        type: integer
+    type: object
+  fasting.PatternStatus:
+    properties:
+      caveat:
+        type: string
+      evidence:
+        type: string
+      key:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      progress:
+        $ref: '#/definitions/fasting.PatternProgress'
+      status:
         type: string
     type: object
   fasting.Rule:
@@ -381,6 +421,78 @@ paths:
           schema:
             $ref: '#/definitions/http.ErrorResponse'
       summary: Look up one date
+      tags:
+      - Fasting
+    post:
+      consumes:
+      - application/json
+      description: 'Same as GET, plus patterns that need the caller''s history: progress
+        through six days of Shawwal, Dawud alternation (with observes_dawud), and
+        the Friday-alone caution. fasting_dates lists days the caller fasted or plans
+        to fast. The API evaluates the body for this request only; it never stores
+        it, and the response is not cacheable. Restricted days and a pilgrim at Arafah
+        return no patterns.'
+      parameters:
+      - description: Response language
+        enum:
+        - en
+        - id
+        in: path
+        name: language
+        required: true
+        type: string
+      - description: Gregorian date in YYYY-MM-DD, or today for Asia/Jakarta
+        in: path
+        name: date
+        required: true
+        type: string
+      - default: id
+        description: Hijri calendar source; defaults to id
+        enum:
+        - id
+        - umm-al-qura
+        in: query
+        name: calendar
+        type: string
+      - default: false
+        description: Apply the pilgrim-at-Arafah exception
+        in: query
+        name: is_pilgrim_at_arafah
+        type: boolean
+      - description: Fasting dates (at most 366) and the Dawud opt-in
+        in: body
+        name: history
+        required: true
+        schema:
+          $ref: '#/definitions/fasting.DtoFastingHistory'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/http.DayResponse'
+        "400":
+          description: Invalid body, date, or query
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "422":
+          description: Calendar does not cover the date
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "503":
+          description: Request timed out
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Look up one date with personal patterns
       tags:
       - Fasting
   /api/{language}/fasting/rules:

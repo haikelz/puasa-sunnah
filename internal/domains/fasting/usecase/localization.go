@@ -68,7 +68,7 @@ func rulesIndonesian() []domain.Rule {
 			Key:         "six_shawwal_candidate",
 			Name:        "Enam hari puasa Syawal",
 			Kind:        "recommended",
-			Calculation: "Enam hari mana pun sejak 2 Syawal sampai akhir bulan; pengguna perlu mencatat sendiri hari yang telah dijalankan.",
+			Calculation: "Enam hari mana pun sejak 2 Syawal sampai akhir bulan; POST /days/{date} menghitung hari yang dikirim pengguna dalam fasting_dates.",
 			Evidence:    []string{"https://sunnah.com/muslim:1164a"},
 			Caveat:      "Terdapat perbedaan pendapat mengenai rincian seperti pelaksanaan berturut-turut dan penggabungan niat.",
 		},
@@ -123,7 +123,7 @@ func rulesIndonesian() []domain.Rule {
 			Kind:        "recommended_pattern",
 			Calculation: "Berselang-seling antara satu hari berpuasa dan satu hari tidak berpuasa, dengan tetap menghindari hari yang dilarang.",
 			Evidence:    []string{"https://sunnah.com/bukhari:1976"},
-			Caveat:      "Memerlukan riwayat pribadi sehingga tidak ditampilkan oleh pengklasifikasi tanggal yang stateless.",
+			Caveat:      "Hanya dievaluasi oleh POST /days/{date} ketika pengguna mengisi observes_dawud dan mengirim tanggal puasa terakhir; API tidak pernah menyimpannya.",
 		},
 		{
 			Key:         "eid",
@@ -145,8 +145,11 @@ func rulesIndonesian() []domain.Rule {
 			Name:        "Puasa Jumat secara tersendiri",
 			Kind:        "conditional_caution",
 			Calculation: "Memerlukan informasi mengenai puasa pada hari sebelum atau sesudahnya dan apakah terdapat puasa lain yang disyariatkan pada hari Jumat.",
-			Evidence:    []string{"https://sunnah.com/bukhari:1985"},
-			Caveat:      "Tidak ditampilkan oleh pengklasifikasi stateless; tanyakan keadaan pribadi kepada ulama yang kompeten.",
+			Evidence: []string{
+				"https://sunnah.com/bukhari:1985",
+				"https://sunnah.com/muslim:1144b",
+			},
+			Caveat: "Hanya dievaluasi oleh POST /days/{date} dari tanggal puasa yang dikirim pengguna. Puasa yang biasa Anda jalankan dikecualikan; tanyakan keadaan pribadi kepada ulama yang kompeten.",
 		},
 	}
 }

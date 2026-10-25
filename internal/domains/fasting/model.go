@@ -129,22 +129,68 @@ type CalendarSource struct {
 	Publications  []CalendarPublication `json:"publications"`
 }
 
-// DtoDayRequest asks for one date.
+// DtoDayRequest asks for one date. History is nil when the caller sent no
+// personal context.
 type DtoDayRequest struct {
 	Date              string
 	Calendar          Calendar
 	IsPilgrimAtArafah bool
 	Language          Language
+	History           *DtoFastingHistory
+}
+
+// DtoFastingHistory is caller-supplied context for personal patterns. The API
+// evaluates it for one request and never stores it.
+type DtoFastingHistory struct {
+	FastingDates  []string `json:"fasting_dates" example:"2027-08-05,2027-08-07"`
+	ObservesDawud bool     `json:"observes_dawud"`
 }
 
 // DateToday asks for the current date in Asia/Jakarta wherever a date is accepted.
 const DateToday = "today"
 
-// Day is the classification of one date with its calendar source.
+// Personal pattern keys reuse the /rules keys.
+const (
+	PatternSixShawwal  = "six_shawwal_candidate"
+	PatternDawud       = "dawud"
+	PatternFridayAlone = "friday_alone"
+)
+
+const (
+	PatternStatusInProgress = "in_progress"
+	PatternStatusComplete   = "complete"
+	PatternStatusFastDay    = "fast_day"
+	PatternStatusRestDay    = "rest_day"
+	PatternStatusCaution    = "caution"
+	PatternStatusPaired     = "paired"
+	PatternStatusCoincides  = "coincides"
+)
+
+// Day is the classification of one date with its calendar source and the
+// personal patterns the caller's history unlocks.
 type Day struct {
 	Classification
-	Calendar       Calendar       `json:"calendar"`
-	CalendarSource CalendarSource `json:"calendar_source"`
+	Calendar       Calendar        `json:"calendar"`
+	CalendarSource CalendarSource  `json:"calendar_source"`
+	Patterns       []PatternStatus `json:"patterns"`
+}
+
+// PatternStatus reports a personal pattern that depends on the caller's history.
+// It stays separate from the fixed-date recommendations.
+type PatternStatus struct {
+	Key      string           `json:"key"`
+	Name     string           `json:"name"`
+	Status   string           `json:"status"`
+	Message  string           `json:"message"`
+	Evidence string           `json:"evidence"`
+	Caveat   string           `json:"caveat,omitempty"`
+	Progress *PatternProgress `json:"progress,omitempty"`
+}
+
+// PatternProgress counts recorded days toward a pattern's target.
+type PatternProgress struct {
+	Recorded int `json:"recorded"`
+	Target   int `json:"target"`
 }
 
 // CalendarPublication is one document, such as a yearly Kemenag PDF, behind a

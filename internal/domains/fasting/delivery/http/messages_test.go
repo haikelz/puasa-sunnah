@@ -90,6 +90,11 @@ func TestRequestErrorMessagesInBothLanguages(t *testing.T) {
 			wantIndonesian: "paling panjang 366 hari",
 		},
 		{
+			err:            &domain.RequestError{Code: domain.CodeHistoryTooLong},
+			wantEnglish:    "fasting_dates holds at most 366 dates",
+			wantIndonesian: "fasting_dates paling banyak berisi 366 tanggal",
+		},
+		{
 			err: &domain.RequestError{
 				Code:          domain.CodeOutsideCoverage,
 				Calendar:      domain.CalendarIndonesia,

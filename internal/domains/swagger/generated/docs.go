@@ -158,6 +158,104 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "post": {
+                "description": "Same as GET, plus patterns that need the caller's history: progress through six days of Shawwal, Dawud alternation (with observes_dawud), and the Friday-alone caution. fasting_dates lists days the caller fasted or plans to fast. The API evaluates the body for this request only; it never stores it, and the response is not cacheable. Restricted days and a pilgrim at Arafah return no patterns.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Fasting"
+                ],
+                "summary": "Look up one date with personal patterns",
+                "parameters": [
+                    {
+                        "enum": [
+                            "en",
+                            "id"
+                        ],
+                        "type": "string",
+                        "description": "Response language",
+                        "name": "language",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Gregorian date in YYYY-MM-DD, or today for Asia/Jakarta",
+                        "name": "date",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "umm-al-qura"
+                        ],
+                        "type": "string",
+                        "default": "id",
+                        "description": "Hijri calendar source; defaults to id",
+                        "name": "calendar",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Apply the pilgrim-at-Arafah exception",
+                        "name": "is_pilgrim_at_arafah",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Fasting dates (at most 366) and the Dawud opt-in",
+                        "name": "history",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/fasting.DtoFastingHistory"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.DayResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "no-store"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid body, date, or query",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Calendar does not cover the date",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Request timed out",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/{language}/fasting/rules": {
@@ -544,6 +642,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "patterns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.PatternStatus"
+                    }
+                },
                 "recommendations": {
                     "type": "array",
                     "items": {
@@ -561,6 +665,24 @@ const docTemplate = `{
                 },
                 "weekday": {
                     "type": "string"
+                }
+            }
+        },
+        "fasting.DtoFastingHistory": {
+            "type": "object",
+            "properties": {
+                "fasting_dates": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "2027-08-05",
+                        "2027-08-07"
+                    ]
+                },
+                "observes_dawud": {
+                    "type": "boolean"
                 }
             }
         },
@@ -600,6 +722,43 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "fasting.PatternProgress": {
+            "type": "object",
+            "properties": {
+                "recorded": {
+                    "type": "integer"
+                },
+                "target": {
+                    "type": "integer"
+                }
+            }
+        },
+        "fasting.PatternStatus": {
+            "type": "object",
+            "properties": {
+                "caveat": {
+                    "type": "string"
+                },
+                "evidence": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "progress": {
+                    "$ref": "#/definitions/fasting.PatternProgress"
+                },
+                "status": {
                     "type": "string"
                 }
             }

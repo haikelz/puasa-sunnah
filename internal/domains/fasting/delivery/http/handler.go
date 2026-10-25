@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"strconv"
@@ -24,6 +25,8 @@ const (
 	cacheFixedDate = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
 	// Without a date the anchor is today in Asia/Jakarta, so keep the copy short.
 	cacheToday = "public, max-age=300, s-maxage=300"
+	// Responses built from a caller's fasting history stay out of every cache.
+	cachePrivate = "no-store"
 )
 
 const (
@@ -46,6 +49,7 @@ func (h *Handler) Register(router fiber.Router) {
 	router.Get("/rules", h.rules)
 	router.Get("/schedules", h.schedule)
 	router.Get("/days/:date", h.day)
+	router.Post("/days/:date", h.dayWithHistory)
 	router.Post("/classify", h.classify)
 }
 
@@ -177,6 +181,44 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/days/{date} [get]
 func (h *Handler) day(c *fiber.Ctx) error {
+	return h.respondDay(c, nil)
+}
+
+// dayWithHistory godoc
+// @Summary Look up one date with personal patterns
+// @Description Same as GET, plus patterns that need the caller's history: progress through six days of Shawwal, Dawud alternation (with observes_dawud), and the Friday-alone caution. fasting_dates lists days the caller fasted or plans to fast. The API evaluates the body for this request only; it never stores it, and the response is not cacheable. Restricted days and a pilgrim at Arafah return no patterns.
+// @Tags Fasting
+// @Accept json
+// @Produce json
+// @Param language path string true "Response language" Enums(en, id)
+// @Param date path string true "Gregorian date in YYYY-MM-DD, or today for Asia/Jakarta"
+// @Param calendar query string false "Hijri calendar source; defaults to id" Enums(id, umm-al-qura) default(id)
+// @Param is_pilgrim_at_arafah query boolean false "Apply the pilgrim-at-Arafah exception" default(false)
+// @Param history body fasting.DtoFastingHistory true "Fasting dates (at most 366) and the Dawud opt-in"
+// @Success 200 {object} DayResponse
+// @Header 200 {string} Cache-Control "no-store"
+// @Failure 400 {object} ErrorResponse "Invalid body, date, or query"
+// @Failure 422 {object} ErrorResponse "Calendar does not cover the date"
+// @Failure 503 {object} ErrorResponse "Request timed out"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/{language}/fasting/days/{date} [post]
+func (h *Handler) dayWithHistory(c *fiber.Ctx) error {
+	var req domain.DtoFastingHistory
+	decoder := json.NewDecoder(bytes.NewReader(c.Body()))
+	// A misspelled field would otherwise read as an empty history and wrong patterns.
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		return badRequest(
+			requestLanguage(c),
+			"body must be JSON with only fasting_dates and observes_dawud",
+			"body harus berupa JSON yang hanya berisi fasting_dates dan observes_dawud",
+		)
+	}
+
+	return h.respondDay(c, &req)
+}
+
+func (h *Handler) respondDay(c *fiber.Ctx, history *domain.DtoFastingHistory) error {
 	language := requestLanguage(c)
 
 	isPilgrim, err := parsePilgrim(c, language)
@@ -189,16 +231,20 @@ func (h *Handler) day(c *fiber.Ctx) error {
 		Calendar:          domain.Calendar(c.Query("calendar")),
 		IsPilgrimAtArafah: isPilgrim,
 		Language:          language,
+		History:           history,
 	})
 	if err != nil {
 		return usecaseError(err, language)
 	}
 
-	cacheControl := cacheFixedDate
-	if c.Params("date") == domain.DateToday {
-		cacheControl = cacheToday
+	switch {
+	case history != nil:
+		c.Set(fiber.HeaderCacheControl, cachePrivate)
+	case c.Params("date") == domain.DateToday:
+		c.Set(fiber.HeaderCacheControl, cacheToday)
+	default:
+		c.Set(fiber.HeaderCacheControl, cacheFixedDate)
 	}
-	c.Set(fiber.HeaderCacheControl, cacheControl)
 
 	return c.JSON(fiber.Map{"data": res})
 }
