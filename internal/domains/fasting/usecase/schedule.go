@@ -10,6 +10,9 @@ import (
 
 var jakarta = time.FixedZone("Asia/Jakarta", 7*60*60)
 
+// maxRangeDays keeps period=range as cheap as the year schedule.
+const maxRangeDays = 366
+
 func (u *FastingUsecase) Schedule(ctx context.Context, request domain.ScheduleRequest) (domain.Schedule, error) {
 	for _, key := range request.Types {
 		switch key {
@@ -144,21 +147,69 @@ type scheduleWindow struct {
 	end    time.Time
 }
 
-// scheduleBounds resolves the window for a request: the calendar period that
-// contains the anchor date.
+// scheduleBounds resolves the window for a request. period=range takes start
+// (default today) with end or days; the calendar periods take an anchor date.
 func scheduleBounds(request domain.ScheduleRequest) (scheduleWindow, error) {
-	anchor, err := scheduleAnchor(request.Date, "date")
+	if request.Period != domain.SchedulePeriodRange {
+		hasRangeInput := request.Start != "" ||
+			request.End != "" ||
+			request.Days != nil
+		if hasRangeInput {
+			return scheduleWindow{}, invalidRequest(domain.CodeRangeOnlyInput, "")
+		}
+
+		anchor, err := scheduleAnchor(request.Date, "date")
+		if err != nil {
+			return scheduleWindow{}, err
+		}
+
+		start, end, err := scheduleRange(anchor, request.Period)
+		if err != nil {
+			return scheduleWindow{}, err
+		}
+
+		return scheduleWindow{
+			anchor: anchor,
+			start:  start,
+			end:    end,
+		}, nil
+	}
+
+	if request.Date != "" {
+		return scheduleWindow{}, invalidRequest(domain.CodeRangeWithDate, "date")
+	}
+	start, err := scheduleAnchor(request.Start, "start")
 	if err != nil {
 		return scheduleWindow{}, err
 	}
 
-	start, end, err := scheduleRange(anchor, request.Period)
-	if err != nil {
-		return scheduleWindow{}, err
+	var end time.Time
+	switch {
+	case request.End != "" && request.Days != nil:
+		return scheduleWindow{}, invalidRequest(domain.CodeRangeEndAndDays, "")
+	case request.End != "":
+		end, err = parseDate(request.End, "end")
+		if err != nil {
+			return scheduleWindow{}, err
+		}
+	case request.Days != nil:
+		if *request.Days < 1 || *request.Days > maxRangeDays {
+			return scheduleWindow{}, invalidRequest(domain.CodeRangeDays, "days")
+		}
+		end = start.AddDate(0, 0, *request.Days-1)
+	default:
+		return scheduleWindow{}, invalidRequest(domain.CodeRangeNeedsEnd, "")
+	}
+
+	if end.Before(start) {
+		return scheduleWindow{}, invalidRequest(domain.CodeRangeEndBeforeStart, "end")
+	}
+	if int(end.Sub(start).Hours()/24)+1 > maxRangeDays {
+		return scheduleWindow{}, invalidRequest(domain.CodeRangeTooLong, "")
 	}
 
 	return scheduleWindow{
-		anchor: anchor,
+		anchor: start,
 		start:  start,
 		end:    end,
 	}, nil

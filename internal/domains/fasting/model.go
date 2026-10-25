@@ -65,6 +65,7 @@ const (
 	SchedulePeriodWeek  SchedulePeriod = "week"
 	SchedulePeriodMonth SchedulePeriod = "month"
 	SchedulePeriodYear  SchedulePeriod = "year"
+	SchedulePeriodRange SchedulePeriod = "range"
 )
 
 type Calendar string
@@ -78,6 +79,9 @@ type ScheduleRequest struct {
 	Period            SchedulePeriod
 	Types             []string
 	Date              string
+	Start             string
+	End               string
+	Days              *int
 	IsPilgrimAtArafah bool
 	Language          Language
 	Calendar          Calendar

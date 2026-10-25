@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	domain "puasa-sunnah/internal/domains/fasting"
 
@@ -65,18 +66,22 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 
 // schedule godoc
 // @Summary Get a fasting schedule
-// @Description Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone. format=ics returns a downloadable text/calendar file with all-day events instead of the JSON envelope.
+// @Description Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date, or for an explicit range. period=range takes start (default today) with end or days, up to 366 days; omit start for a rolling feed a calendar app can subscribe to. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone. format=ics returns a text/calendar file with all-day events instead of the JSON envelope.
 // @Tags Fasting
 // @Produce json,text/calendar
 // @Param language path string true "Response language" Enums(en, id)
-// @Param period query string true "Schedule period" Enums(week, month, year)
-// @Param date query string false "Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta"
+// @Param period query string true "Schedule period" Enums(week, month, year, range)
+// @Param date query string false "Anchor date in YYYY-MM-DD for week, month, and year; defaults to today in Asia/Jakarta"
+// @Param start query string false "First date in YYYY-MM-DD for period=range; defaults to today in Asia/Jakarta"
+// @Param end query string false "Last date in YYYY-MM-DD for period=range; use end or days"
+// @Param days query integer false "Number of days for period=range, from 1 to 366; use end or days" minimum(1) maximum(366)
 // @Param calendar query string false "Hijri calendar source; defaults to id" Enums(id, umm-al-qura) default(id)
 // @Param types query []string false "Filter recommendation keys (OR); omitted means all" collectionFormat(csv) Enums(monday_thursday, white_days, ashura, six_shawwal_candidate, first_nine_dhul_hijjah, arafah)
 // @Param format query string false "Response representation" Enums(json, ics) default(json)
+// @Param reminder query string false "ICS only: add an alarm at HH:MM on the evening before each fast"
 // @Param is_pilgrim_at_arafah query boolean false "Apply the pilgrim-at-Arafah exception" default(false)
 // @Success 200 {object} ScheduleResponse
-// @Header 200 {string} Cache-Control "CDN-cacheable for a day with an explicit date; 5 minutes when date is omitted"
+// @Header 200 {string} Cache-Control "CDN-cacheable for a day with an explicit date or start; 5 minutes when the range is relative to today"
 // @Failure 400 {object} ErrorResponse "Invalid query"
 // @Failure 422 {object} ErrorResponse "Calendar does not cover the requested range; calendar=id errors name calendar=umm-al-qura as an alternative"
 // @Failure 503 {object} ErrorResponse "Request timed out"
@@ -101,6 +106,25 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 		}
 	}
 
+	var days *int
+	if value := c.Query("days"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil {
+			return badRequest(
+				language,
+				"days must be an integer",
+				"days harus berupa bilangan bulat",
+			)
+		}
+
+		days = &parsed
+	}
+
+	reminder, err := parseReminder(c.Query("reminder"), format, language)
+	if err != nil {
+		return err
+	}
+
 	isPilgrim, err := parsePilgrim(c, language)
 	if err != nil {
 		return err
@@ -109,6 +133,9 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 	res, err := h.usecase.Schedule(c.UserContext(), domain.ScheduleRequest{
 		Period:            domain.SchedulePeriod(c.Query("period")),
 		Date:              c.Query("date"),
+		Start:             c.Query("start"),
+		End:               c.Query("end"),
+		Days:              days,
 		IsPilgrimAtArafah: isPilgrim,
 		Language:          language,
 		Calendar:          domain.Calendar(c.Query("calendar")),
@@ -119,7 +146,7 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 	}
 
 	cacheControl := cacheFixedDate
-	if c.Query("date") == "" {
+	if c.Query("date") == "" && c.Query("start") == "" {
 		cacheControl = cacheToday
 	}
 	c.Set(fiber.HeaderCacheControl, cacheControl)
@@ -127,7 +154,7 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 	if format == formatICS {
 		c.Set(fiber.HeaderContentType, "text/calendar; charset=utf-8")
 		c.Set(fiber.HeaderContentDisposition, "attachment; filename=puasa-sunnah.ics")
-		return c.SendString(scheduleICS(res))
+		return c.SendString(scheduleICS(res, reminder))
 	}
 
 	return c.JSON(fiber.Map{"data": res})
@@ -225,6 +252,36 @@ func parsePilgrim(c *fiber.Ctx, language domain.Language) (bool, error) {
 	}
 
 	return parsed, nil
+}
+
+// parseReminder returns how long before the all-day event the alarm fires:
+// 20:00 on the evening before is 4 hours before midnight. Zero means no alarm.
+func parseReminder(
+	value string,
+	format string,
+	language domain.Language,
+) (time.Duration, error) {
+	if value == "" {
+		return 0, nil
+	}
+	if format != formatICS {
+		return 0, badRequest(
+			language,
+			"reminder applies only to format=ics",
+			"reminder hanya berlaku untuk format=ics",
+		)
+	}
+
+	at, err := time.Parse("15:04", value)
+	if err != nil {
+		return 0, badRequest(
+			language,
+			"reminder must use HH:MM",
+			"reminder harus menggunakan format HH:MM",
+		)
+	}
+
+	return 24*time.Hour - time.Duration(at.Hour())*time.Hour - time.Duration(at.Minute())*time.Minute, nil
 }
 
 func badRequest(

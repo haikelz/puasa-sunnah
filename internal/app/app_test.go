@@ -211,6 +211,38 @@ func TestAPI(t *testing.T) {
 		}
 	})
 
+	t.Run("rolling feed", func(t *testing.T) {
+		feed := sendRequest(
+			t,
+			server,
+			http.MethodGet,
+			"/api/id/fasting/schedules?period=range&days=60&calendar=umm-al-qura&format=ics&reminder=20:00",
+			"",
+		)
+
+		unfolded := strings.ReplaceAll(feed.body, "\r\n ", "")
+		isExpected := feed.status == http.StatusOK &&
+			feed.cacheControl == wantCacheToday &&
+			strings.Contains(unfolded, "TRIGGER:-PT4H") &&
+			strings.Contains(unfolded, "X-WR-CALNAME:Puasa Sunnah")
+		if !isExpected {
+			t.Fatalf("rolling feed = %d %q %s", feed.status, feed.cacheControl, unfolded)
+		}
+
+		invalidQueries := []string{
+			"period=range&days=ten",
+			"period=range&days=5&reminder=20:00",
+			"period=range&days=5&format=ics&reminder=8pm",
+		}
+		for _, query := range invalidQueries {
+			got := sendRequest(t, server, http.MethodGet, "/api/en/fasting/schedules?"+query, "")
+
+			if got.status != http.StatusBadRequest {
+				t.Errorf("%s status = %d, want 400", query, got.status)
+			}
+		}
+	})
+
 	t.Run("health", func(t *testing.T) {
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)
 		if err != nil {

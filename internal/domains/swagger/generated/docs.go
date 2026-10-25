@@ -207,7 +207,7 @@ const docTemplate = `{
         },
         "/api/{language}/fasting/schedules": {
             "get": {
-                "description": "Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone. format=ics returns a downloadable text/calendar file with all-day events instead of the JSON envelope.",
+                "description": "Returns recommended voluntary fasting opportunities for the Gregorian week, month, or year containing the anchor date, or for an explicit range. period=range takes start (default today) with end or days, up to 366 days; omit start for a rolling feed a calendar app can subscribe to. Select the published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta timezone. format=ics returns a text/calendar file with all-day events instead of the JSON envelope.",
                 "produces": [
                     "application/json",
                     "text/calendar"
@@ -232,7 +232,8 @@ const docTemplate = `{
                         "enum": [
                             "week",
                             "month",
-                            "year"
+                            "year",
+                            "range"
                         ],
                         "type": "string",
                         "description": "Schedule period",
@@ -242,8 +243,28 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta",
+                        "description": "Anchor date in YYYY-MM-DD for week, month, and year; defaults to today in Asia/Jakarta",
                         "name": "date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "First date in YYYY-MM-DD for period=range; defaults to today in Asia/Jakarta",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Last date in YYYY-MM-DD for period=range; use end or days",
+                        "name": "end",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 366,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Number of days for period=range, from 1 to 366; use end or days",
+                        "name": "days",
                         "in": "query"
                     },
                     {
@@ -287,6 +308,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "ICS only: add an alarm at HH:MM on the evening before each fast",
+                        "name": "reminder",
+                        "in": "query"
+                    },
+                    {
                         "type": "boolean",
                         "default": false,
                         "description": "Apply the pilgrim-at-Arafah exception",
@@ -303,7 +330,7 @@ const docTemplate = `{
                         "headers": {
                             "Cache-Control": {
                                 "type": "string",
-                                "description": "CDN-cacheable for a day with an explicit date; 5 minutes when date is omitted"
+                                "description": "CDN-cacheable for a day with an explicit date or start; 5 minutes when the range is relative to today"
                             }
                         }
                     },
@@ -678,12 +705,14 @@ const docTemplate = `{
             "enum": [
                 "week",
                 "month",
-                "year"
+                "year",
+                "range"
             ],
             "x-enum-varnames": [
                 "SchedulePeriodWeek",
                 "SchedulePeriodMonth",
-                "SchedulePeriodYear"
+                "SchedulePeriodYear",
+                "SchedulePeriodRange"
             ]
         },
         "fasting.Verdict": {

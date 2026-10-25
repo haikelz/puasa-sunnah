@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	domain "puasa-sunnah/internal/domains/fasting"
 	fastingRepository "puasa-sunnah/internal/domains/fasting/repository"
@@ -286,4 +287,158 @@ func hasScheduleDate(dates []domain.ScheduleDate, wanted string) bool {
 		}
 	}
 	return false
+}
+
+func TestScheduleRange(t *testing.T) {
+	t.Parallel()
+
+	days := func(n int) *int { return &n }
+	tests := []struct {
+		name      string
+		request   domain.ScheduleRequest
+		wantStart string
+		wantEnd   string
+	}{
+		{
+			name: "days",
+			request: domain.ScheduleRequest{
+				Start: "2027-03-01",
+				Days:  days(10),
+			},
+			wantStart: "2027-03-01",
+			wantEnd:   "2027-03-10",
+		},
+		{
+			name: "end",
+			request: domain.ScheduleRequest{
+				Start: "2027-03-01",
+				End:   "2027-03-31",
+			},
+			wantStart: "2027-03-01",
+			wantEnd:   "2027-03-31",
+		},
+		{
+			name: "one day",
+			request: domain.ScheduleRequest{
+				Start: "2027-10-15",
+				End:   "2027-10-15",
+			},
+			wantStart: "2027-10-15",
+			wantEnd:   "2027-10-15",
+		},
+		{
+			name: "full span",
+			request: domain.ScheduleRequest{
+				Start: "2027-01-01",
+				Days:  days(maxRangeDays),
+			},
+			wantStart: "2027-01-01",
+			wantEnd:   "2028-01-01",
+		},
+	}
+
+	for _, tt := range tests {
+		tt.request.Period = domain.SchedulePeriodRange
+		tt.request.Calendar = domain.CalendarUmmAlQura
+
+		got, err := newCalendarUsecase(t).Schedule(context.Background(), tt.request)
+		if err != nil {
+			t.Fatalf("%s: Schedule() error = %v", tt.name, err)
+		}
+
+		isExpected := got.Period == domain.SchedulePeriodRange &&
+			got.StartDate == tt.wantStart &&
+			got.EndDate == tt.wantEnd &&
+			got.AnchorDate == tt.wantStart &&
+			got.WeekStartsOn == ""
+		if !isExpected {
+			t.Errorf("%s: period/range/anchor = %s %s..%s %s", tt.name, got.Period, got.StartDate, got.EndDate, got.AnchorDate)
+		}
+	}
+
+	rolling, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+		Period:   domain.SchedulePeriodRange,
+		Days:     days(30),
+		Calendar: domain.CalendarUmmAlQura,
+	})
+	if err != nil {
+		t.Fatalf("rolling Schedule() error = %v", err)
+	}
+
+	if today := time.Now().In(jakarta).Format(time.DateOnly); rolling.StartDate != today {
+		t.Errorf("rolling start = %s, want today %s", rolling.StartDate, today)
+	}
+}
+
+func TestScheduleRangeRejectsInvalidInput(t *testing.T) {
+	t.Parallel()
+
+	days := func(n int) *int { return &n }
+	tests := map[string]domain.ScheduleRequest{
+		"neither end nor days": {
+			Period: domain.SchedulePeriodRange,
+			Start:  "2027-03-01",
+		},
+		"end and days": {
+			Period: domain.SchedulePeriodRange,
+			Start:  "2027-03-01",
+			End:    "2027-03-02",
+			Days:   days(2),
+		},
+		"end before start": {
+			Period: domain.SchedulePeriodRange,
+			Start:  "2027-03-02",
+			End:    "2027-03-01",
+		},
+		"too long by end": {
+			Period: domain.SchedulePeriodRange,
+			Start:  "2027-01-01",
+			End:    "2028-01-02",
+		},
+		"zero days": {
+			Period: domain.SchedulePeriodRange,
+			Days:   days(0),
+		},
+		"too many days": {
+			Period: domain.SchedulePeriodRange,
+			Days:   days(maxRangeDays + 1),
+		},
+		"date with range": {
+			Period: domain.SchedulePeriodRange,
+			Date:   "2027-03-01",
+			Days:   days(2),
+		},
+		"malformed start": {
+			Period: domain.SchedulePeriodRange,
+			Start:  "1 March 2027",
+			Days:   days(2),
+		},
+		"start with month": {
+			Period: domain.SchedulePeriodMonth,
+			Start:  "2027-03-01",
+		},
+		"days with year": {
+			Period: domain.SchedulePeriodYear,
+			Days:   days(5),
+		},
+	}
+
+	for name, request := range tests {
+		for _, language := range []domain.Language{domain.LanguageEnglish, domain.LanguageIndonesian} {
+			request.Language = language
+			_, err := newCalendarUsecase(t).Schedule(context.Background(), request)
+			if !errors.Is(err, domain.ErrInvalidRequest) {
+				t.Errorf("%s/%s: error = %v, want ErrInvalidRequest", name, language, err)
+			}
+		}
+	}
+
+	_, err := newCalendarUsecase(t).Schedule(context.Background(), domain.ScheduleRequest{
+		Period: domain.SchedulePeriodRange,
+		Start:  "2027-12-20",
+		Days:   days(30),
+	})
+	if !errors.Is(err, domain.ErrCalendarUnavailable) {
+		t.Errorf("range past Kemenag coverage error = %v, want ErrCalendarUnavailable", err)
+	}
 }

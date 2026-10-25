@@ -59,8 +59,50 @@ func requestErrorMessage(err *domain.RequestError, language domain.Language) str
 	case domain.CodeUnsupportedPeriod:
 		return localized(
 			language,
-			"period must be week, month, or year",
-			"period harus bernilai week, month, atau year",
+			"period must be week, month, year, or range",
+			"period harus bernilai week, month, year, atau range",
+		)
+	case domain.CodeRangeOnlyInput:
+		return localized(
+			language,
+			"start, end, and days apply only to period=range",
+			"start, end, dan days hanya berlaku untuk period=range",
+		)
+	case domain.CodeRangeWithDate:
+		return localized(
+			language,
+			"period=range uses start instead of date",
+			"period=range menggunakan start, bukan date",
+		)
+	case domain.CodeRangeEndAndDays:
+		return localized(
+			language,
+			"use end or days, not both",
+			"gunakan end atau days, jangan keduanya",
+		)
+	case domain.CodeRangeDays:
+		return localized(
+			language,
+			"days must be from 1 to 366",
+			"days harus bernilai 1 sampai 366",
+		)
+	case domain.CodeRangeNeedsEnd:
+		return localized(
+			language,
+			"period=range needs end or days",
+			"period=range memerlukan end atau days",
+		)
+	case domain.CodeRangeEndBeforeStart:
+		return localized(
+			language,
+			"end must not precede start",
+			"end tidak boleh sebelum start",
+		)
+	case domain.CodeRangeTooLong:
+		return localized(
+			language,
+			"a range covers at most 366 days",
+			"rentang paling panjang 366 hari",
 		)
 	case domain.CodeOutsideCoverage:
 		return coverageMessage(err, language)

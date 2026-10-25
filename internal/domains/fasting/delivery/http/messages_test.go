@@ -51,8 +51,43 @@ func TestRequestErrorMessagesInBothLanguages(t *testing.T) {
 		},
 		{
 			err:            &domain.RequestError{Code: domain.CodeUnsupportedPeriod},
-			wantEnglish:    "period must be week, month, or year",
-			wantIndonesian: "period harus bernilai week, month, atau year",
+			wantEnglish:    "week, month, year, or range",
+			wantIndonesian: "week, month, year, atau range",
+		},
+		{
+			err:            &domain.RequestError{Code: domain.CodeRangeOnlyInput},
+			wantEnglish:    "apply only to period=range",
+			wantIndonesian: "hanya berlaku untuk period=range",
+		},
+		{
+			err:            &domain.RequestError{Code: domain.CodeRangeWithDate},
+			wantEnglish:    "uses start instead of date",
+			wantIndonesian: "menggunakan start, bukan date",
+		},
+		{
+			err:            &domain.RequestError{Code: domain.CodeRangeEndAndDays},
+			wantEnglish:    "use end or days, not both",
+			wantIndonesian: "gunakan end atau days, jangan keduanya",
+		},
+		{
+			err:            &domain.RequestError{Code: domain.CodeRangeDays},
+			wantEnglish:    "days must be from 1 to 366",
+			wantIndonesian: "days harus bernilai 1 sampai 366",
+		},
+		{
+			err:            &domain.RequestError{Code: domain.CodeRangeNeedsEnd},
+			wantEnglish:    "needs end or days",
+			wantIndonesian: "memerlukan end atau days",
+		},
+		{
+			err:            &domain.RequestError{Code: domain.CodeRangeEndBeforeStart},
+			wantEnglish:    "end must not precede start",
+			wantIndonesian: "end tidak boleh sebelum start",
+		},
+		{
+			err:            &domain.RequestError{Code: domain.CodeRangeTooLong},
+			wantEnglish:    "at most 366 days",
+			wantIndonesian: "paling panjang 366 hari",
 		},
 		{
 			err: &domain.RequestError{
@@ -102,8 +137,8 @@ func TestUsecaseErrorStatus(t *testing.T) {
 
 	invalid := &domain.RequestError{
 		Kind:  domain.ErrInvalidRequest,
-		Code:  domain.CodeUnsupportedCalendar,
-		Field: "calendar",
+		Code:  domain.CodeRangeDays,
+		Field: "days",
 	}
 	if err := usecaseError(invalid, domain.LanguageEnglish); !errors.As(err, &fiberError) || fiberError.Code != fiber.StatusBadRequest {
 		t.Errorf("invalid request = %v, want 400", err)

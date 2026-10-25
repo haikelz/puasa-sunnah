@@ -218,11 +218,13 @@ definitions:
     - week
     - month
     - year
+    - range
     type: string
     x-enum-varnames:
     - SchedulePeriodWeek
     - SchedulePeriodMonth
     - SchedulePeriodYear
+    - SchedulePeriodRange
   fasting.Verdict:
     enum:
     - optional
@@ -415,10 +417,12 @@ paths:
   /api/{language}/fasting/schedules:
     get:
       description: Returns recommended voluntary fasting opportunities for the Gregorian
-        week, month, or year containing the anchor date. Select the published Indonesian
-        Kemenag calendar or the calculated Saudi Umm al-Qura calendar. Dates use Asia/Jakarta
-        timezone. format=ics returns a downloadable text/calendar file with all-day
-        events instead of the JSON envelope.
+        week, month, or year containing the anchor date, or for an explicit range.
+        period=range takes start (default today) with end or days, up to 366 days;
+        omit start for a rolling feed a calendar app can subscribe to. Select the
+        published Indonesian Kemenag calendar or the calculated Saudi Umm al-Qura
+        calendar. Dates use Asia/Jakarta timezone. format=ics returns a text/calendar
+        file with all-day events instead of the JSON envelope.
       parameters:
       - description: Response language
         enum:
@@ -433,14 +437,31 @@ paths:
         - week
         - month
         - year
+        - range
         in: query
         name: period
         required: true
         type: string
-      - description: Anchor date in YYYY-MM-DD; defaults to today in Asia/Jakarta
+      - description: Anchor date in YYYY-MM-DD for week, month, and year; defaults
+          to today in Asia/Jakarta
         in: query
         name: date
         type: string
+      - description: First date in YYYY-MM-DD for period=range; defaults to today
+          in Asia/Jakarta
+        in: query
+        name: start
+        type: string
+      - description: Last date in YYYY-MM-DD for period=range; use end or days
+        in: query
+        name: end
+        type: string
+      - description: Number of days for period=range, from 1 to 366; use end or days
+        in: query
+        maximum: 366
+        minimum: 1
+        name: days
+        type: integer
       - default: id
         description: Hijri calendar source; defaults to id
         enum:
@@ -471,6 +492,10 @@ paths:
         in: query
         name: format
         type: string
+      - description: 'ICS only: add an alarm at HH:MM on the evening before each fast'
+        in: query
+        name: reminder
+        type: string
       - default: false
         description: Apply the pilgrim-at-Arafah exception
         in: query
@@ -484,8 +509,8 @@ paths:
           description: OK
           headers:
             Cache-Control:
-              description: CDN-cacheable for a day with an explicit date; 5 minutes
-                when date is omitted
+              description: CDN-cacheable for a day with an explicit date or start;
+                5 minutes when the range is relative to today
               type: string
           schema:
             $ref: '#/definitions/http.ScheduleResponse'
