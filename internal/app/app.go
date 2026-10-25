@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
+	"puasa-sunnah/internal/config"
+	fastingHTTP "puasa-sunnah/internal/domains/fasting/delivery/http"
+	fastingRepository "puasa-sunnah/internal/domains/fasting/repository"
+	fastingUsecase "puasa-sunnah/internal/domains/fasting/usecase"
+	swaggerHTTP "puasa-sunnah/internal/domains/swagger/delivery/http"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
-
-	"puasa-sunnah/internal/config"
-	fastinghttp "puasa-sunnah/internal/domains/fasting/delivery/http"
-	fastingrepository "puasa-sunnah/internal/domains/fasting/repository"
-	fastingusecase "puasa-sunnah/internal/domains/fasting/usecase"
-	swaggerhttp "puasa-sunnah/internal/domains/swagger/delivery/http"
 )
 
 const (
@@ -25,6 +25,9 @@ const (
 
 	// A full-year schedule computes in milliseconds; the deadline bounds the use-case loop.
 	requestTimeout = 5 * time.Second
+
+	// Health checks and errors must never come from a cache.
+	cacheNoStore = "no-store"
 )
 
 type HealthResponse struct {
@@ -49,21 +52,24 @@ func New(cfg config.Config) (*fiber.App, error) {
 	)
 
 	server.Get("/health", health(cfg.AppName))
-	swaggerhttp.Register(server)
+	swaggerHTTP.Register(server)
 
-	kemenagCalendar, err := fastingrepository.NewKemenagCalendar()
+	kemenagCalendar, err := fastingRepository.NewKemenagCalendar()
 	if err != nil {
 		return nil, fmt.Errorf("load Kemenag calendar: %w", err)
 	}
-	ummAlQuraCalendar := fastingrepository.NewUmmAlQuraCalendar()
-	fastingService, err := fastingusecase.NewFastingUsecase(kemenagCalendar, ummAlQuraCalendar)
+
+	ummAlQuraCalendar := fastingRepository.NewUmmAlQuraCalendar()
+	fastingService, err := fastingUsecase.NewFastingUsecase(kemenagCalendar, ummAlQuraCalendar)
 	if err != nil {
 		return nil, fmt.Errorf("create fasting usecase: %w", err)
 	}
-	fastingHandler, err := fastinghttp.NewHandler(fastingService)
+
+	fastingHandler, err := fastingHTTP.NewHandler(fastingService)
 	if err != nil {
 		return nil, fmt.Errorf("create fasting HTTP handler: %w", err)
 	}
+
 	fastingHandler.Register(server.Group("/api/:language/fasting"))
 
 	return server, nil
@@ -78,8 +84,11 @@ func New(cfg config.Config) (*fiber.App, error) {
 // @Router /health [get]
 func health(serviceName string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		c.Set(fiber.HeaderCacheControl, "no-store")
-		return c.JSON(HealthResponse{Status: "ok", Service: serviceName})
+		c.Set(fiber.HeaderCacheControl, cacheNoStore)
+		return c.JSON(HealthResponse{
+			Status:  "ok",
+			Service: serviceName,
+		})
 	}
 }
 
@@ -89,7 +98,12 @@ func accessLog(c *fiber.Ctx) error {
 
 	if err := c.Next(); err != nil {
 		if handlerErr := c.App().Config().ErrorHandler(c, err); handlerErr != nil {
-			slog.Error("render error response", "request_id", c.Locals("requestid"), "error", handlerErr)
+			slog.Error(
+				"render error response",
+				"request_id", c.Locals("requestid"),
+				"error", handlerErr,
+			)
+			// The response already failed to render; the log above records it.
 			_ = c.SendStatus(fiber.StatusInternalServerError)
 		}
 	}
@@ -102,6 +116,7 @@ func accessLog(c *fiber.Ctx) error {
 		"status", c.Response().StatusCode(),
 		"latency", time.Since(start),
 	)
+
 	return nil
 }
 
@@ -147,7 +162,7 @@ func errorHandler(c *fiber.Ctx, err error) error {
 		)
 	}
 
-	c.Set(fiber.HeaderCacheControl, "no-store")
+	c.Set(fiber.HeaderCacheControl, cacheNoStore)
 	return c.Status(status).JSON(fiber.Map{
 		"error": fiber.Map{
 			"code":    status,
