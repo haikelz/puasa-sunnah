@@ -3,10 +3,16 @@ on:
   push:
     branches:
       - master
+      - dev
+  pull_request:
 
 permissions:
   contents: read
-  packages: write
+
+# A newer push to the same branch or pull request supersedes the running check.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -34,6 +40,15 @@ jobs:
       - name: Check go.mod is tidy
         run: go mod tidy -diff
 
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$unformatted" ]; then
+            echo "Run gofmt -w on:"
+            echo "$unformatted"
+            exit 1
+          fi
+
       - name: Vet
         run: go vet ./...
 
@@ -43,9 +58,50 @@ jobs:
       - name: Build
         run: go build -trimpath -o /tmp/puasa-sunnah ./cmd/api
 
-  docker:
-    needs: test
+      # AGENTS.md: never hand-edit generated Swagger; regenerate and commit it.
+      - name: Check Swagger is regenerated
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@v1.16.4
+          swag init -g main.go -d cmd/api,internal/app,internal/domains/fasting -o internal/domains/swagger/generated
+          git diff --exit-code -- internal/domains/swagger/generated
+
+  lint:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+
+  vulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      # Match the Dockerfile's golang:1.26 image so the scan covers the
+      # standard library that ships; go.mod only states the minimum.
+      - name: Check vulnerabilities
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: "1.26"
+
+  docker:
+    needs:
+      - test
+      - lint
+      - vulncheck
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
