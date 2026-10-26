@@ -205,7 +205,7 @@ Example response (fields abbreviated):
     "recommendations": [
       {
         "key": "monday_thursday",
-        "name": "Monday or Thursday",
+        "name": "Thursday fast",
         "evidence": "Jami` at-Tirmidhi 747"
       },
       { "key": "ashura", "name": "Ashura", "evidence": "Sahih Muslim 1162b" }

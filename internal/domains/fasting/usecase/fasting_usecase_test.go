@@ -201,3 +201,54 @@ func TestRulesDescribePersonalPatterns(t *testing.T) {
 		}
 	}
 }
+
+func TestMondayThursdayNamesTheWeekday(t *testing.T) {
+	t.Parallel()
+
+	service := newCalendarUsecase(t)
+	tests := []struct {
+		date           string
+		wantEnglish    string
+		wantIndonesian string
+	}{
+		{
+			date:           "2026-08-03",
+			wantEnglish:    "Monday fast",
+			wantIndonesian: "Puasa Senin",
+		},
+		{
+			date:           "2026-08-06",
+			wantEnglish:    "Thursday fast",
+			wantIndonesian: "Puasa Kamis",
+		},
+	}
+
+	for _, tt := range tests {
+		wantNames := map[domain.Language]string{
+			domain.LanguageEnglish:    tt.wantEnglish,
+			domain.LanguageIndonesian: tt.wantIndonesian,
+		}
+		for language, want := range wantNames {
+			got, err := service.Classify(context.Background(), domain.ClassificationRequest{
+				Date: tt.date,
+				// 5 Safar carries no other recommendation, so only the weekday applies.
+				Hijri: domain.HijriDate{
+					Year:  1448,
+					Month: 2,
+					Day:   5,
+				},
+				Language: language,
+			})
+			if err != nil {
+				t.Fatalf("%s/%s Classify() error = %v", tt.date, language, err)
+			}
+
+			isNamed := len(got.Recommendations) == 1 &&
+				got.Recommendations[0].Key == "monday_thursday" &&
+				got.Recommendations[0].Name == want
+			if !isNamed {
+				t.Errorf("%s/%s recommendations = %+v, want monday_thursday named %q", tt.date, language, got.Recommendations, want)
+			}
+		}
+	}
+}

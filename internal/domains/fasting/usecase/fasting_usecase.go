@@ -127,8 +127,14 @@ func applyRestrictions(result *domain.Classification, language domain.Language) 
 
 func applyRecommendations(result *domain.Classification, input parsedRequest, language domain.Language) {
 	if weekday := input.date.Weekday(); weekday == time.Monday || weekday == time.Thursday {
+		name := text(language, "Monday fast", "Puasa Senin")
+		if weekday == time.Thursday {
+			name = text(language, "Thursday fast", "Puasa Kamis")
+		}
 		result.Recommendations = append(result.Recommendations, domain.Occurrence{
-			Key: "monday_thursday", Name: text(language, "Monday or Thursday", "Senin atau Kamis"), Evidence: "Jami` at-Tirmidhi 747",
+			Key:      "monday_thursday",
+			Name:     name,
+			Evidence: "Jami` at-Tirmidhi 747",
 		})
 	}
 

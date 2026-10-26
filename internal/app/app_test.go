@@ -432,7 +432,7 @@ func TestAPI(t *testing.T) {
 		if len(payload.Data.Dates[0].Recommendations) == 0 {
 			t.Fatal("Indonesian first schedule date has no recommendations")
 		}
-		if payload.Data.Dates[0].Weekday != "Senin" || payload.Data.Dates[0].Recommendations[0].Name != "Senin atau Kamis" {
+		if payload.Data.Dates[0].Weekday != "Senin" || payload.Data.Dates[0].Recommendations[0].Name != "Puasa Senin" {
 			t.Errorf("Indonesian first date = %q/%q", payload.Data.Dates[0].Weekday, payload.Data.Dates[0].Recommendations[0].Name)
 		}
 		if !strings.Contains(payload.Data.Disclaimer, "Informasi ini hanya untuk perencanaan") {

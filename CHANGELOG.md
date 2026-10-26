@@ -16,6 +16,7 @@ its URLs, so breaking changes are listed here and in each release.
 ### Changed
 
 - Logs are JSON, one object per line.
+- `monday_thursday` recommendations name the weekday: "Monday fast" or "Thursday fast" in English, "Puasa Senin" or "Puasa Kamis" in Indonesian. The key is unchanged.
 
 ## [1.0.0] - 2026-10-25
 
