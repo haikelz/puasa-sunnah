@@ -191,9 +191,12 @@ func rulesEnglish() []domain.Rule {
 			Kind:        "recommended",
 			Calculation: "Gregorian weekday is Monday or Thursday.",
 			Evidence: []string{
+				"https://sunnah.com/tirmidhi:745",
+				"https://sunnah.com/abudawud:2436",
 				"https://sunnah.com/tirmidhi:747",
 				"https://sunnah.com/muslim:1162b",
 			},
+			Caveat: "Both days rest on the Prophet's regular practice and on deeds being presented to Allah (Jami` at-Tirmidhi 745 and 747, Sunan Abi Dawud 2436). Sahih Muslim 1162b gives an additional reason for Monday.",
 		},
 		{
 			Key:         "white_days",

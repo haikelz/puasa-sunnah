@@ -50,9 +50,12 @@ func rulesIndonesian() []domain.Rule {
 			Kind:        "recommended",
 			Calculation: "Hari dalam kalender Masehi adalah Senin atau Kamis.",
 			Evidence: []string{
+				"https://sunnah.com/tirmidhi:745",
+				"https://sunnah.com/abudawud:2436",
 				"https://sunnah.com/tirmidhi:747",
 				"https://sunnah.com/muslim:1162b",
 			},
+			Caveat: "Kedua hari ini berlandaskan kebiasaan Nabi berpuasa dan diperlihatkannya amal kepada Allah (Jami` at-Tirmidhi 745 dan 747, Sunan Abi Dawud 2436). Sahih Muslim 1162b menyebutkan alasan tambahan untuk hari Senin.",
 		},
 		{
 			Key:         "white_days",

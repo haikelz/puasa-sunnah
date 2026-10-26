@@ -252,3 +252,33 @@ func TestMondayThursdayNamesTheWeekday(t *testing.T) {
 		}
 	}
 }
+
+func TestMondayThursdayRuleExplainsEvidence(t *testing.T) {
+	t.Parallel()
+
+	service := newCalendarUsecase(t)
+	wantEvidence := []string{
+		"https://sunnah.com/tirmidhi:745",
+		"https://sunnah.com/abudawud:2436",
+		"https://sunnah.com/tirmidhi:747",
+		"https://sunnah.com/muslim:1162b",
+	}
+
+	for _, language := range []domain.Language{domain.LanguageEnglish, domain.LanguageIndonesian} {
+		var rule domain.Rule
+		for _, candidate := range service.Rules(context.Background(), language) {
+			if candidate.Key == "monday_thursday" {
+				rule = candidate
+			}
+		}
+
+		if strings.Join(rule.Evidence, " ") != strings.Join(wantEvidence, " ") {
+			t.Errorf("%s monday_thursday evidence = %v, want %v", language, rule.Evidence, wantEvidence)
+		}
+		// The caveat must say why Monday cites an extra hadith, so the list does not
+		// read as Thursday having weaker support.
+		if !strings.Contains(rule.Caveat, "745") || !strings.Contains(rule.Caveat, "1162b") {
+			t.Errorf("%s monday_thursday caveat = %q, want it to explain the shared and Monday evidence", language, rule.Caveat)
+		}
+	}
+}

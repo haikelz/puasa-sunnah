@@ -17,6 +17,7 @@ its URLs, so breaking changes are listed here and in each release.
 
 - Logs are JSON, one object per line.
 - `monday_thursday` recommendations name the weekday: "Monday fast" or "Thursday fast" in English, "Puasa Senin" or "Puasa Kamis" in Indonesian. The key is unchanged.
+- The `monday_thursday` rule also cites Jami` at-Tirmidhi 745 and Sunan Abi Dawud 2436, and its caveat explains that both days rest on the Prophet's regular practice while Sahih Muslim 1162b gives an additional reason for Monday.
 
 ## [1.0.0] - 2026-10-25
 
