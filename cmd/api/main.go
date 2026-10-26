@@ -19,6 +19,9 @@ import (
 // @BasePath /
 // @schemes http https
 func main() {
+	// One JSON object per line lets Vercel's log search filter on request_id and status.
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("load configuration", "error", err)
