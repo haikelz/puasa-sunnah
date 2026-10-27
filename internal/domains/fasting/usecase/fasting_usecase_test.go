@@ -92,12 +92,12 @@ func TestClassifyRejectsInvalidInput(t *testing.T) {
 func TestNewFastingUsecaseRequiresCalendars(t *testing.T) {
 	t.Parallel()
 
-	indonesiaCalendar, err := fastingRepository.NewKemenagCalendar()
+	indonesiaCalendar, err := fastingRepository.NewKemenagCalendarRepository()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ummAlQuraCalendar := fastingRepository.NewUmmAlQuraCalendar()
+	ummAlQuraCalendar := fastingRepository.NewUmmAlQuraCalendarRepository()
 	tests := []struct {
 		name      string
 		indonesia domain.CalendarRepository

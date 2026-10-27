@@ -12,13 +12,13 @@ import (
 func TestNewHandlerRequiresUsecase(t *testing.T) {
 	t.Parallel()
 
-	handler, err := NewHandler(nil)
+	handler, err := NewFastingHandler(nil)
 
 	if handler != nil {
-		t.Errorf("NewHandler() handler = %#v, want nil", handler)
+		t.Errorf("NewFastingHandler() handler = %#v, want nil", handler)
 	}
 	if !errors.Is(err, errUsecaseRequired) {
-		t.Errorf("NewHandler() error = %v, want %v", err, errUsecaseRequired)
+		t.Errorf("NewFastingHandler() error = %v, want %v", err, errUsecaseRequired)
 	}
 }
 

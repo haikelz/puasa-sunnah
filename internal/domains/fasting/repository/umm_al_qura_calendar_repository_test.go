@@ -23,7 +23,7 @@ func TestUmmAlQuraCalendarHijriDate(t *testing.T) {
 		{"2027-06-06", domain.HijriDate{Year: 1449, Month: 1, Day: 1}},
 	}
 
-	calendar := NewUmmAlQuraCalendar()
+	calendar := NewUmmAlQuraCalendarRepository()
 	for _, tt := range tests {
 		t.Run(tt.gregorian, func(t *testing.T) {
 			date, err := time.Parse(time.DateOnly, tt.gregorian)
@@ -44,7 +44,7 @@ func TestUmmAlQuraCalendarHijriDate(t *testing.T) {
 func TestUmmAlQuraCalendarRejectsUnsupportedDate(t *testing.T) {
 	t.Parallel()
 
-	calendar := NewUmmAlQuraCalendar()
+	calendar := NewUmmAlQuraCalendarRepository()
 	for _, value := range []time.Time{
 		time.Date(1937, time.March, 13, 0, 0, 0, 0, time.UTC),
 		time.Date(2077, time.November, 17, 0, 0, 0, 0, time.UTC),
@@ -61,7 +61,7 @@ func TestUmmAlQuraCalendarHonorsCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := NewUmmAlQuraCalendar().HijriDate(ctx, time.Date(2026, time.August, 9, 0, 0, 0, 0, time.UTC))
+	_, err := NewUmmAlQuraCalendarRepository().HijriDate(ctx, time.Date(2026, time.August, 9, 0, 0, 0, 0, time.UTC))
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("HijriDate() error = %v, want context.Canceled", err)
 	}

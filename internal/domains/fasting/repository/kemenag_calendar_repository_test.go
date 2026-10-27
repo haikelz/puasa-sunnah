@@ -14,12 +14,12 @@ import (
 	domain "puasa-sunnah/internal/domains/fasting"
 )
 
-func newTestKemenagCalendar(t *testing.T) *KemenagCalendar {
+func newTestKemenagCalendar(t *testing.T) *KemenagCalendarRepository {
 	t.Helper()
 
-	calendar, err := NewKemenagCalendar()
+	calendar, err := NewKemenagCalendarRepository()
 	if err != nil {
-		t.Fatalf("NewKemenagCalendar() error = %v", err)
+		t.Fatalf("NewKemenagCalendarRepository() error = %v", err)
 	}
 
 	return calendar

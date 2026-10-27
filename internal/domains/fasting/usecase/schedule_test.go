@@ -205,12 +205,12 @@ func TestScheduleRejectsUnsupportedCalendar(t *testing.T) {
 func newCalendarUsecase(t *testing.T) *FastingUsecase {
 	t.Helper()
 
-	kemenagCalendar, err := fastingRepository.NewKemenagCalendar()
+	kemenagCalendar, err := fastingRepository.NewKemenagCalendarRepository()
 	if err != nil {
-		t.Fatalf("NewKemenagCalendar() error = %v", err)
+		t.Fatalf("NewKemenagCalendarRepository() error = %v", err)
 	}
 
-	service, err := NewFastingUsecase(kemenagCalendar, fastingRepository.NewUmmAlQuraCalendar())
+	service, err := NewFastingUsecase(kemenagCalendar, fastingRepository.NewUmmAlQuraCalendarRepository())
 	if err != nil {
 		t.Fatalf("NewFastingUsecase() error = %v", err)
 	}

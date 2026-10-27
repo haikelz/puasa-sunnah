@@ -46,18 +46,22 @@ type monthStart struct {
 	month int
 }
 
-type KemenagCalendar struct {
+// KemenagCalendarRepository maps dates through the embedded Kemenag
+// publications and refuses dates outside their combined coverage.
+type KemenagCalendarRepository struct {
 	publications  []kemenagPublication
 	starts        []monthStart
 	coverageStart time.Time
 	coverageEnd   time.Time
 }
 
-func NewKemenagCalendar() (*KemenagCalendar, error) {
+// NewKemenagCalendarRepository loads every embedded year and fails when the
+// publications leave a gap, disagree, or break the 29- or 30-day month rule.
+func NewKemenagCalendarRepository() (*KemenagCalendarRepository, error) {
 	return loadKemenagCalendar(kemenagFiles)
 }
 
-func loadKemenagCalendar(files fs.FS) (*KemenagCalendar, error) {
+func loadKemenagCalendar(files fs.FS) (*KemenagCalendarRepository, error) {
 	names, err := fs.Glob(files, "kemenag/*.json")
 	if err != nil {
 		return nil, fmt.Errorf("list Kemenag calendars: %w", err)
@@ -79,7 +83,7 @@ func loadKemenagCalendar(files fs.FS) (*KemenagCalendar, error) {
 		return publications[i].coverageStart.Before(publications[j].coverageStart)
 	})
 
-	calendar := &KemenagCalendar{
+	calendar := &KemenagCalendarRepository{
 		publications:  publications,
 		coverageStart: publications[0].coverageStart,
 		coverageEnd:   publications[0].coverageEnd,
@@ -220,7 +224,7 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 	return starts, nil
 }
 
-func (r *KemenagCalendar) HijriDate(ctx context.Context, value time.Time) (domain.HijriDate, error) {
+func (r *KemenagCalendarRepository) HijriDate(ctx context.Context, value time.Time) (domain.HijriDate, error) {
 	if err := ctx.Err(); err != nil {
 		return domain.HijriDate{}, err
 	}
@@ -253,7 +257,7 @@ func (r *KemenagCalendar) HijriDate(ctx context.Context, value time.Time) (domai
 	)
 }
 
-func (r *KemenagCalendar) Source(start, end time.Time) domain.CalendarSource {
+func (r *KemenagCalendarRepository) Source(start, end time.Time) domain.CalendarSource {
 	start = date(start.Year(), start.Month(), start.Day())
 	end = date(end.Year(), end.Month(), end.Day())
 
@@ -294,7 +298,7 @@ func (r *KemenagCalendar) Source(start, end time.Time) domain.CalendarSource {
 
 // publicationFor prefers the PDF published for that Gregorian year; a
 // neighbouring year's PDF only answers for its few spill-over days.
-func (r *KemenagCalendar) publicationFor(
+func (r *KemenagCalendarRepository) publicationFor(
 	year int,
 	start time.Time,
 	end time.Time,

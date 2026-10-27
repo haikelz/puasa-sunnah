@@ -13,7 +13,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type Handler struct {
+// FastingHandler serves the fasting routes and maps use-case errors to
+// localized HTTP responses.
+type FastingHandler struct {
 	usecase domain.Usecase
 }
 
@@ -34,17 +36,18 @@ const (
 	formatICS  = "ics"
 )
 
-func NewHandler(usecase domain.Usecase) (*Handler, error) {
+// NewFastingHandler returns an error when usecase is nil.
+func NewFastingHandler(usecase domain.Usecase) (*FastingHandler, error) {
 	if usecase == nil {
 		return nil, errUsecaseRequired
 	}
 
-	return &Handler{
+	return &FastingHandler{
 		usecase: usecase,
 	}, nil
 }
 
-func (h *Handler) Register(router fiber.Router) {
+func (h *FastingHandler) Register(router fiber.Router) {
 	router.Use(requireSupportedLanguage)
 	router.Get("/rules", h.rules)
 	router.Get("/schedules", h.schedule)
@@ -63,7 +66,7 @@ func (h *Handler) Register(router fiber.Router) {
 // @Header 200 {string} Cache-Control "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/rules [get]
-func (h *Handler) rules(c *fiber.Ctx) error {
+func (h *FastingHandler) rules(c *fiber.Ctx) error {
 	c.Set(fiber.HeaderCacheControl, cacheFixedDate)
 	return c.JSON(fiber.Map{"data": h.usecase.Rules(c.UserContext(), requestLanguage(c))})
 }
@@ -91,7 +94,7 @@ func (h *Handler) rules(c *fiber.Ctx) error {
 // @Failure 503 {object} ErrorResponse "Request timed out"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/schedules [get]
-func (h *Handler) schedule(c *fiber.Ctx) error {
+func (h *FastingHandler) schedule(c *fiber.Ctx) error {
 	language := requestLanguage(c)
 
 	format := c.Query("format", formatJSON)
@@ -180,7 +183,7 @@ func (h *Handler) schedule(c *fiber.Ctx) error {
 // @Failure 503 {object} ErrorResponse "Request timed out"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/days/{date} [get]
-func (h *Handler) day(c *fiber.Ctx) error {
+func (h *FastingHandler) day(c *fiber.Ctx) error {
 	return h.respondDay(c, nil)
 }
 
@@ -202,7 +205,7 @@ func (h *Handler) day(c *fiber.Ctx) error {
 // @Failure 503 {object} ErrorResponse "Request timed out"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/days/{date} [post]
-func (h *Handler) dayWithHistory(c *fiber.Ctx) error {
+func (h *FastingHandler) dayWithHistory(c *fiber.Ctx) error {
 	var req domain.DtoFastingHistory
 	decoder := json.NewDecoder(bytes.NewReader(c.Body()))
 	// A misspelled field would otherwise read as an empty history and wrong patterns.
@@ -218,7 +221,7 @@ func (h *Handler) dayWithHistory(c *fiber.Ctx) error {
 	return h.respondDay(c, &req)
 }
 
-func (h *Handler) respondDay(c *fiber.Ctx, history *domain.DtoFastingHistory) error {
+func (h *FastingHandler) respondDay(c *fiber.Ctx, history *domain.DtoFastingHistory) error {
 	language := requestLanguage(c)
 
 	isPilgrim, err := parsePilgrim(c, language)
@@ -261,7 +264,7 @@ func (h *Handler) respondDay(c *fiber.Ctx, history *domain.DtoFastingHistory) er
 // @Failure 400 {object} ErrorResponse "Invalid JSON or date"
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/classify [post]
-func (h *Handler) classify(c *fiber.Ctx) error {
+func (h *FastingHandler) classify(c *fiber.Ctx) error {
 	language := requestLanguage(c)
 	var req domain.ClassificationRequest
 	// Decode JSON directly; BodyParser would also accept form and XML bodies.

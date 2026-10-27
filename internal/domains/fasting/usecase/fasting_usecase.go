@@ -13,6 +13,8 @@ var (
 	errUmmAlQuraCalendarRequired = errors.New("umm al-Qura calendar is required")
 )
 
+// FastingUsecase classifies dates and builds schedules from the calendar the
+// caller selects.
 type FastingUsecase struct {
 	indonesiaCalendar domain.CalendarRepository
 	ummAlQuraCalendar domain.CalendarRepository
@@ -24,6 +26,7 @@ type parsedRequest struct {
 	isPilgrimAtArafah bool
 }
 
+// NewFastingUsecase requires both calendars.
 func NewFastingUsecase(indonesiaCalendar, ummAlQuraCalendar domain.CalendarRepository) (*FastingUsecase, error) {
 	if indonesiaCalendar == nil {
 		return nil, errIndonesiaCalendarRequired

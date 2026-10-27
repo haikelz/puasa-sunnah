@@ -18,13 +18,17 @@ const (
 	ummAlQuraCoverageEnd   = "2077-11-16"
 )
 
-type UmmAlQuraCalendar struct{}
+// UmmAlQuraCalendarRepository maps dates through the Umm al-Qura table that
+// go-hijri copies from van Gent.
+type UmmAlQuraCalendarRepository struct{}
 
-func NewUmmAlQuraCalendar() *UmmAlQuraCalendar {
-	return &UmmAlQuraCalendar{}
+// NewUmmAlQuraCalendarRepository needs no data loading; the table ships with
+// go-hijri.
+func NewUmmAlQuraCalendarRepository() *UmmAlQuraCalendarRepository {
+	return &UmmAlQuraCalendarRepository{}
 }
 
-func (r *UmmAlQuraCalendar) HijriDate(ctx context.Context, value time.Time) (domain.HijriDate, error) {
+func (r *UmmAlQuraCalendarRepository) HijriDate(ctx context.Context, value time.Time) (domain.HijriDate, error) {
 	if err := ctx.Err(); err != nil {
 		return domain.HijriDate{}, err
 	}
@@ -48,7 +52,7 @@ func (r *UmmAlQuraCalendar) HijriDate(ctx context.Context, value time.Time) (dom
 	}, nil
 }
 
-func (r *UmmAlQuraCalendar) Source(time.Time, time.Time) domain.CalendarSource {
+func (r *UmmAlQuraCalendarRepository) Source(time.Time, time.Time) domain.CalendarSource {
 	return domain.CalendarSource{
 		ID:            ummAlQuraID,
 		Name:          ummAlQuraName,

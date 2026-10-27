@@ -17,13 +17,13 @@ import (
 func TestInvariantsAcrossCoverage(t *testing.T) {
 	t.Parallel()
 
-	kemenagCalendar, err := fastingRepository.NewKemenagCalendar()
+	kemenagCalendar, err := fastingRepository.NewKemenagCalendarRepository()
 	if err != nil {
-		t.Fatalf("NewKemenagCalendar() error = %v", err)
+		t.Fatalf("NewKemenagCalendarRepository() error = %v", err)
 	}
 	calendars := map[domain.Calendar]domain.CalendarRepository{
 		domain.CalendarIndonesia: kemenagCalendar,
-		domain.CalendarUmmAlQura: fastingRepository.NewUmmAlQuraCalendar(),
+		domain.CalendarUmmAlQura: fastingRepository.NewUmmAlQuraCalendarRepository(),
 	}
 
 	for calendarID, calendar := range calendars {
