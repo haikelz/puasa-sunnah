@@ -116,17 +116,19 @@ const (
 )
 
 // CalendarSource describes a calendar series. CoverageStart and CoverageEnd span
-// every supported date; Publications lists the documents behind the requested range.
+// every supported date; Publications lists the documents behind the requested
+// range, and IsbatDecisions the Sidang Isbat decisions for months it overlaps.
 type CalendarSource struct {
-	ID            string                `json:"id"`
-	Name          string                `json:"name"`
-	Publisher     string                `json:"publisher"`
-	URL           string                `json:"url"`
-	CoverageStart string                `json:"coverage_start"`
-	CoverageEnd   string                `json:"coverage_end"`
-	Status        string                `json:"status"`
-	Caveat        string                `json:"caveat"`
-	Publications  []CalendarPublication `json:"publications"`
+	ID             string                `json:"id"`
+	Name           string                `json:"name"`
+	Publisher      string                `json:"publisher"`
+	URL            string                `json:"url"`
+	CoverageStart  string                `json:"coverage_start"`
+	CoverageEnd    string                `json:"coverage_end"`
+	Status         string                `json:"status"`
+	Caveat         string                `json:"caveat"`
+	Publications   []CalendarPublication `json:"publications"`
+	IsbatDecisions []IsbatDecision       `json:"isbat_decisions"`
 }
 
 // DtoDayRequest asks for one date. History is nil when the caller sent no
@@ -201,4 +203,16 @@ type CalendarPublication struct {
 	URL           string `json:"url"`
 	CoverageStart string `json:"coverage_start"`
 	CoverageEnd   string `json:"coverage_end"`
+}
+
+// IsbatDecision is a Kemenag Sidang Isbat decision on when Ramadan, Shawwal, or
+// Dhu al-Hijjah began. The calendar uses MonthStart in place of PlannedStart,
+// the date the yearly PDF printed.
+type IsbatDecision struct {
+	HijriYear    int    `json:"hijri_year" example:"1447"`
+	HijriMonth   int    `json:"hijri_month" example:"9"`
+	PlannedStart string `json:"planned_start" example:"2026-02-19" format:"date"`
+	MonthStart   string `json:"month_start" example:"2026-02-19" format:"date"`
+	DecidedOn    string `json:"decided_on" example:"2026-02-17" format:"date"`
+	URL          string `json:"url"`
 }

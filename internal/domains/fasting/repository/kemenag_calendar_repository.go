@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"slices"
 	"sort"
 	"time"
 
@@ -29,6 +30,9 @@ type kemenagPublication struct {
 	CoverageStart string              `json:"coverage_start"`
 	CoverageEnd   string              `json:"coverage_end"`
 	MonthStarts   []kemenagMonthStart `json:"month_starts"`
+	// IsbatDecisions records Sidang Isbat decisions announced after the PDF;
+	// each one replaces the PDF's start for that month.
+	IsbatDecisions []kemenagIsbatDecision `json:"isbat_decisions,omitempty"`
 
 	coverageStart time.Time
 	coverageEnd   time.Time
@@ -40,10 +44,29 @@ type kemenagMonthStart struct {
 	Month int    `json:"hijri_month"`
 }
 
+type kemenagIsbatDecision struct {
+	Year       int    `json:"hijri_year"`
+	Month      int    `json:"hijri_month"`
+	MonthStart string `json:"month_start"`
+	DecidedOn  string `json:"decided_on"`
+	URL        string `json:"url"`
+}
+
 type monthStart struct {
 	date  time.Time
 	year  int
 	month int
+}
+
+type hijriMonth struct {
+	year  int
+	month int
+}
+
+// isbatDecision is an applied decision with the start of the month it set.
+type isbatDecision struct {
+	start    time.Time
+	decision domain.IsbatDecision
 }
 
 // KemenagCalendarRepository maps dates through the embedded Kemenag
@@ -51,6 +74,7 @@ type monthStart struct {
 type KemenagCalendarRepository struct {
 	publications  []kemenagPublication
 	starts        []monthStart
+	decisions     []isbatDecision
 	coverageStart time.Time
 	coverageEnd   time.Time
 }
@@ -101,7 +125,7 @@ func loadKemenagCalendar(files fs.FS) (*KemenagCalendarRepository, error) {
 		}
 	}
 
-	calendar.starts, err = mergeMonthStarts(publications)
+	calendar.starts, calendar.decisions, err = mergeMonthStarts(publications)
 	if err != nil {
 		return nil, err
 	}
@@ -154,18 +178,19 @@ func readKemenagPublication(files fs.FS, name string) (kemenagPublication, error
 	return publication, nil
 }
 
-// mergeMonthStarts joins every publication's boundaries. Publications overlap at
-// year edges, so a shared boundary must agree exactly.
-func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
+// mergeMonthStarts joins every publication's boundaries and applies the Isbat
+// decisions. Publications overlap at year edges, so a shared boundary must
+// agree exactly.
+func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, []isbatDecision, error) {
 	byDate := make(map[time.Time]monthStart)
 	for _, publication := range publications {
 		for _, entry := range publication.MonthStarts {
 			date, err := time.Parse(time.DateOnly, entry.Date)
 			if err != nil {
-				return nil, fmt.Errorf("parse %s month start: %w", publication.ID, err)
+				return nil, nil, fmt.Errorf("parse %s month start: %w", publication.ID, err)
 			}
 			if entry.Month < 1 || entry.Month > 12 || entry.Year < 1 {
-				return nil, fmt.Errorf(
+				return nil, nil, fmt.Errorf(
 					"%s month start %s has invalid Hijri month %d/%d",
 					publication.ID,
 					entry.Date,
@@ -180,7 +205,7 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 				month: entry.Month,
 			}
 			if existing, ok := byDate[date]; ok && existing != start {
-				return nil, fmt.Errorf("%s disagrees on the month starting %s", publication.ID, entry.Date)
+				return nil, nil, fmt.Errorf("%s disagrees on the month starting %s", publication.ID, entry.Date)
 			}
 
 			byDate[date] = start
@@ -195,6 +220,11 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 		return starts[i].date.Before(starts[j].date)
 	})
 
+	decisions, err := applyIsbatDecisions(starts, publications)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	for i := 1; i < len(starts); i++ {
 		previous, current := starts[i-1], starts[i]
 		wantYear, wantMonth := previous.year, previous.month+1
@@ -203,7 +233,7 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 		}
 
 		if current.year != wantYear || current.month != wantMonth {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"month starting %s is %d/%d, want %d/%d",
 				current.date.Format(time.DateOnly),
 				current.month,
@@ -213,7 +243,7 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 			)
 		}
 		if length := daysBetween(previous.date, current.date); length != 29 && length != 30 {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"month starting %s has %d days, want 29 or 30",
 				previous.date.Format(time.DateOnly),
 				length,
@@ -221,7 +251,105 @@ func mergeMonthStarts(publications []kemenagPublication) ([]monthStart, error) {
 		}
 	}
 
-	return starts, nil
+	return starts, decisions, nil
+}
+
+// applyIsbatDecisions moves each decided month to the date Sidang Isbat set.
+// Overlapping publications may repeat a decision but must not contradict it.
+// The month-length check that follows rejects a decision that would leave a
+// neighbouring month outside 29 or 30 days.
+func applyIsbatDecisions(
+	starts []monthStart,
+	publications []kemenagPublication,
+) ([]isbatDecision, error) {
+	decided := make(map[hijriMonth]kemenagIsbatDecision)
+	for _, publication := range publications {
+		for _, entry := range publication.IsbatDecisions {
+			if err := validateIsbatDecision(entry); err != nil {
+				return nil, fmt.Errorf(
+					"%s Isbat decision for %d/%d: %w",
+					publication.ID,
+					entry.Month,
+					entry.Year,
+					err,
+				)
+			}
+
+			key := hijriMonth{
+				year:  entry.Year,
+				month: entry.Month,
+			}
+			if existing, ok := decided[key]; ok && existing != entry {
+				return nil, fmt.Errorf(
+					"%s contradicts the Isbat decision for %d/%d",
+					publication.ID,
+					entry.Month,
+					entry.Year,
+				)
+			}
+
+			decided[key] = entry
+		}
+	}
+
+	decisions := make([]isbatDecision, 0, len(decided))
+	for key, entry := range decided {
+		index := slices.IndexFunc(starts, func(start monthStart) bool {
+			return start.year == key.year && start.month == key.month
+		})
+		if index < 0 {
+			return nil, fmt.Errorf("no planned start for the Isbat decision on %d/%d", key.month, key.year)
+		}
+
+		// validateIsbatDecision already parsed this date.
+		decidedStart, _ := time.Parse(time.DateOnly, entry.MonthStart)
+		planned := starts[index].date
+		starts[index].date = decidedStart
+		decisions = append(decisions, isbatDecision{
+			start: decidedStart,
+			decision: domain.IsbatDecision{
+				HijriYear:    entry.Year,
+				HijriMonth:   entry.Month,
+				PlannedStart: planned.Format(time.DateOnly),
+				MonthStart:   entry.MonthStart,
+				DecidedOn:    entry.DecidedOn,
+				URL:          entry.URL,
+			},
+		})
+	}
+	sort.Slice(decisions, func(i, j int) bool {
+		return decisions[i].start.Before(decisions[j].start)
+	})
+
+	return decisions, nil
+}
+
+// validateIsbatDecision accepts only the months Sidang Isbat decides: Ramadan,
+// Shawwal, and Dhu al-Hijjah, decided before the month began.
+func validateIsbatDecision(entry kemenagIsbatDecision) error {
+	isIsbatMonth := entry.Month == 9 ||
+		entry.Month == 10 ||
+		entry.Month == 12
+	if !isIsbatMonth || entry.Year < 1 {
+		return errors.New("hijri_month must be 9, 10, or 12 with a positive hijri_year")
+	}
+	if entry.URL == "" {
+		return errors.New("url is required")
+	}
+
+	start, err := time.Parse(time.DateOnly, entry.MonthStart)
+	if err != nil {
+		return fmt.Errorf("parse month_start: %w", err)
+	}
+	decidedOn, err := time.Parse(time.DateOnly, entry.DecidedOn)
+	if err != nil {
+		return fmt.Errorf("parse decided_on: %w", err)
+	}
+	if !decidedOn.Before(start) {
+		return errors.New("decided_on must precede month_start")
+	}
+
+	return nil
 }
 
 func (r *KemenagCalendarRepository) HijriDate(ctx context.Context, value time.Time) (domain.HijriDate, error) {
@@ -279,21 +407,42 @@ func (r *KemenagCalendarRepository) Source(start, end time.Time) domain.Calendar
 		})
 	}
 
+	decisions := make([]domain.IsbatDecision, 0)
+	for _, decision := range r.decisions {
+		overlaps := !decision.start.After(end) &&
+			!r.monthEnd(decision.start).Before(start)
+		if overlaps {
+			decisions = append(decisions, decision.decision)
+		}
+	}
+
 	source := domain.CalendarSource{
-		ID:            "kemenag-ri",
-		Name:          "Kalender Hijriah Indonesia",
-		Publisher:     "Ditjen Bimbingan Masyarakat Islam, Kementerian Agama RI",
-		URL:           r.publications[len(r.publications)-1].URL,
-		CoverageStart: r.coverageStart.Format(time.DateOnly),
-		CoverageEnd:   r.coverageEnd.Format(time.DateOnly),
-		Status:        domain.CalendarStatusPublished,
-		Publications:  publications,
+		ID:             "kemenag-ri",
+		Name:           "Kalender Hijriah Indonesia",
+		Publisher:      "Ditjen Bimbingan Masyarakat Islam, Kementerian Agama RI",
+		URL:            r.publications[len(r.publications)-1].URL,
+		CoverageStart:  r.coverageStart.Format(time.DateOnly),
+		CoverageEnd:    r.coverageEnd.Format(time.DateOnly),
+		Status:         domain.CalendarStatusPublished,
+		Publications:   publications,
+		IsbatDecisions: decisions,
 	}
 	if len(publications) > 0 {
 		source.URL = publications[0].URL
 	}
 
 	return source
+}
+
+// monthEnd is the last day of the month that begins on start.
+func (r *KemenagCalendarRepository) monthEnd(start time.Time) time.Time {
+	for _, next := range r.starts {
+		if next.date.After(start) {
+			return next.date.AddDate(0, 0, -1)
+		}
+	}
+
+	return r.coverageEnd
 }
 
 // publicationFor prefers the PDF published for that Gregorian year; a

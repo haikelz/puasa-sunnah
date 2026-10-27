@@ -70,5 +70,6 @@ func (r *UmmAlQuraCalendarRepository) Source(time.Time, time.Time) domain.Calend
 				CoverageEnd:   ummAlQuraCoverageEnd,
 			},
 		},
+		IsbatDecisions: make([]domain.IsbatDecision, 0),
 	}
 }

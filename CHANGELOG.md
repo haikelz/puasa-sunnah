@@ -7,6 +7,10 @@ its URLs, so breaking changes are listed here and in each release.
 
 ## [Unreleased]
 
+### Added
+
+- `calendar_source.isbat_decisions` lists Kemenag Sidang Isbat decisions for the months a response covers, with the PDF's planned start and the decided start. A decision replaces the planned month start.
+
 ## [1.1.0] - 2026-10-27
 
 ### Added

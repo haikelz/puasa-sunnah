@@ -40,6 +40,10 @@ definitions:
         type: string
       id:
         type: string
+      isbat_decisions:
+        items:
+          $ref: '#/definitions/fasting.IsbatDecision'
+        type: array
       name:
         type: string
       publications:
@@ -156,6 +160,29 @@ definitions:
     - day
     - month
     - year
+    type: object
+  fasting.IsbatDecision:
+    properties:
+      decided_on:
+        example: "2026-02-17"
+        format: date
+        type: string
+      hijri_month:
+        example: 9
+        type: integer
+      hijri_year:
+        example: 1447
+        type: integer
+      month_start:
+        example: "2026-02-19"
+        format: date
+        type: string
+      planned_start:
+        example: "2026-02-19"
+        format: date
+        type: string
+      url:
+        type: string
     type: object
   fasting.Occurrence:
     properties:

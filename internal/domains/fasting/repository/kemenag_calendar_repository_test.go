@@ -360,3 +360,114 @@ func TestLoadKemenagCalendarRejectsInconsistentData(t *testing.T) {
 		t.Error("unknown field: loadKemenagCalendar() error = nil")
 	}
 }
+
+func TestLoadKemenagCalendarAppliesIsbatDecision(t *testing.T) {
+	t.Parallel()
+
+	publication := testPublication(
+		2026,
+		"2026-02-01",
+		"2026-03-31",
+		testMonthStart("2026-01-21", 8),
+		testMonthStart("2026-02-19", 9),
+		testMonthStart("2026-03-21", 10),
+	)
+	publication.IsbatDecisions = []kemenagIsbatDecision{
+		{
+			Year:       1447,
+			Month:      9,
+			MonthStart: "2026-02-20",
+			DecidedOn:  "2026-02-18",
+			URL:        "https://example.test/isbat",
+		},
+	}
+
+	calendar, err := loadKemenagCalendar(fstest.MapFS{
+		"kemenag/2026.json": publicationFile(t, publication),
+	})
+	if err != nil {
+		t.Fatalf("loadKemenagCalendar() error = %v", err)
+	}
+
+	for value, want := range map[time.Time]domain.HijriDate{
+		date(2026, time.February, 19): hijriDate(1447, 8, 30),
+		date(2026, time.February, 20): hijriDate(1447, 9, 1),
+		date(2026, time.March, 20):    hijriDate(1447, 9, 29),
+	} {
+		got, err := calendar.HijriDate(context.Background(), value)
+		if err != nil || got != want {
+			t.Errorf("HijriDate(%s) = %+v, %v; want %+v", value.Format(time.DateOnly), got, err, want)
+		}
+	}
+
+	wantDecision := domain.IsbatDecision{
+		HijriYear:    1447,
+		HijriMonth:   9,
+		PlannedStart: "2026-02-19",
+		MonthStart:   "2026-02-20",
+		DecidedOn:    "2026-02-18",
+		URL:          "https://example.test/isbat",
+	}
+	lastDay := calendar.Source(date(2026, time.March, 20), date(2026, time.March, 20)).IsbatDecisions
+	if len(lastDay) != 1 || lastDay[0] != wantDecision {
+		t.Errorf("Source(last day of Ramadan) decisions = %+v, want [%+v]", lastDay, wantDecision)
+	}
+	if shawwal := calendar.Source(date(2026, time.March, 21), date(2026, time.March, 31)).IsbatDecisions; len(shawwal) != 0 {
+		t.Errorf("Source(Shawwal) decisions = %+v, want none", shawwal)
+	}
+}
+
+func TestLoadKemenagCalendarRejectsInvalidIsbatDecisions(t *testing.T) {
+	t.Parallel()
+
+	decision := func(year, month int, monthStart, decidedOn, url string) kemenagIsbatDecision {
+		return kemenagIsbatDecision{
+			Year:       year,
+			Month:      month,
+			MonthStart: monthStart,
+			DecidedOn:  decidedOn,
+			URL:        url,
+		}
+	}
+	const url = "https://example.test/isbat"
+	tests := map[string][]kemenagIsbatDecision{
+		"month without Isbat": {
+			decision(1447, 8, "2026-01-21", "2026-01-19", url),
+		},
+		"decided on the start": {
+			decision(1447, 9, "2026-02-19", "2026-02-19", url),
+		},
+		"missing url": {
+			decision(1447, 9, "2026-02-19", "2026-02-17", ""),
+		},
+		"unplanned month": {
+			decision(1446, 9, "2026-02-19", "2026-02-17", url),
+		},
+		"breaks month length": {
+			decision(1447, 9, "2026-02-22", "2026-02-17", url),
+		},
+		"contradiction": {
+			decision(1447, 9, "2026-02-19", "2026-02-17", url),
+			decision(1447, 9, "2026-02-20", "2026-02-18", url),
+		},
+	}
+
+	for name, decisions := range tests {
+		publication := testPublication(
+			2026,
+			"2026-02-01",
+			"2026-03-31",
+			testMonthStart("2026-01-21", 8),
+			testMonthStart("2026-02-19", 9),
+			testMonthStart("2026-03-21", 10),
+		)
+		publication.IsbatDecisions = decisions
+
+		files := fstest.MapFS{
+			"kemenag/2026.json": publicationFile(t, publication),
+		}
+		if _, err := loadKemenagCalendar(files); err == nil {
+			t.Errorf("%s: loadKemenagCalendar() error = nil", name)
+		}
+	}
+}

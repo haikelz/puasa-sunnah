@@ -540,6 +540,12 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "isbat_decisions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.IsbatDecision"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
@@ -709,6 +715,37 @@ const docTemplate = `{
                 "year": {
                     "type": "integer",
                     "example": 1448
+                }
+            }
+        },
+        "fasting.IsbatDecision": {
+            "type": "object",
+            "properties": {
+                "decided_on": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-02-17"
+                },
+                "hijri_month": {
+                    "type": "integer",
+                    "example": 9
+                },
+                "hijri_year": {
+                    "type": "integer",
+                    "example": 1447
+                },
+                "month_start": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-02-19"
+                },
+                "planned_start": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2026-02-19"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         },

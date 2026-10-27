@@ -67,6 +67,7 @@ Core rules and references are documented in `README.md` and returned by `GET /ap
 - Every schedule response must expose source URL, publisher, coverage, planning status, and a source-appropriate caveat. Indonesian calendar responses must state that Sidang Isbat can supersede Ramadan, Shawwal, or Dhu al-Hijjah planning dates.
 - Weeks are Monday–Sunday. Months and years use Gregorian boundaries in `Asia/Jakarta`.
 - Add a new year only from a Kemenag publication: add `<year>.json` with the PDF URL, SHA-256, coverage, and every month start (including the month in progress on 1 January), add transition tests, verify the full Gregorian year, and update README coverage. `.github/workflows/kemenag-calendar.yaml` only opens an issue; never let automation write calendar data.
+- Record a Sidang Isbat decision only from a Kemenag announcement: add it to that year's `isbat_decisions` with `month_start`, `decided_on`, and the announcement URL on a `kemenag.go.id` domain. When the decision differs from the PDF, add a test for the moved boundary. Keep the Isbat caveat even when some months in a response have a decision.
 - Unsupported ranges must return an explicit error. Do not degrade to a different calendar authority.
 
 ## Vercel deployment constraints
