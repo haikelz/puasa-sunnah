@@ -825,6 +825,9 @@ const docTemplate = `{
         "fasting.PatternProgress": {
             "type": "object",
             "properties": {
+                "eligible_days_left": {
+                    "type": "integer"
+                },
                 "recorded": {
                     "type": "integer"
                 },

@@ -300,12 +300,14 @@ func TestDaySixShawwalProgress(t *testing.T) {
 				},
 			})[domain.PatternSixShawwal]
 
+			// Kemenag's Shawwal 1448 has 29 days, so 6 Syawal leaves 24 including itself.
 			isExpected := pattern.Status == tt.wantStatus &&
 				pattern.Progress != nil &&
 				pattern.Progress.Recorded == tt.wantRecorded &&
-				pattern.Progress.Target == shawwalTarget
+				pattern.Progress.Target == shawwalTarget &&
+				pattern.Progress.EligibleDaysLeft == 24
 			if !isExpected {
-				t.Errorf("%s/%s six_shawwal_candidate = %+v, want %s with %d recorded", tt.name, language, pattern, tt.wantStatus, tt.wantRecorded)
+				t.Errorf("%s/%s six_shawwal_candidate = %+v, want %s with %d recorded and 24 days left", tt.name, language, pattern, tt.wantStatus, tt.wantRecorded)
 			}
 		}
 	}

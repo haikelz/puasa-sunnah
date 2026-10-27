@@ -198,9 +198,12 @@ type PatternStatus struct {
 }
 
 // PatternProgress counts recorded days toward a pattern's target.
+// EligibleDaysLeft counts the month's days from this date to its end, this
+// date included.
 type PatternProgress struct {
-	Recorded int `json:"recorded"`
-	Target   int `json:"target"`
+	Recorded         int `json:"recorded"`
+	Target           int `json:"target"`
+	EligibleDaysLeft int `json:"eligible_days_left"`
 }
 
 // CalendarPublication is one document, such as a yearly Kemenag PDF, behind a

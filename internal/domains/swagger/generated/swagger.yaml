@@ -204,6 +204,8 @@ definitions:
     type: object
   fasting.PatternProgress:
     properties:
+      eligible_days_left:
+        type: integer
       recorded:
         type: integer
       target:

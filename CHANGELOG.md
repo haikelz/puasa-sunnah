@@ -9,8 +9,13 @@ its URLs, so breaking changes are listed here and in each release.
 
 ### Added
 
+- Six Syawal `progress` gains `eligible_days_left`, the Syawal days from that date to the month's end.
 - `GET /api/{language}/fasting/calendars` lists each calendar with its full coverage, publications, Sidang Isbat decisions, and caveat, so clients can warn before a date falls outside coverage.
 - `calendar_source.isbat_decisions` lists Kemenag Sidang Isbat decisions for the months a response covers, with the PDF's planned start and the decided start. A decision replaces the planned month start. The 1447 H decisions for Ramadan, Syawal, and Zulhijah are recorded; all three matched the 2026 PDF.
+
+### Changed
+
+- The six Syawal message on `POST /days/{date}` says "this date" instead of "today" and adds the eligible days left.
 
 ## [1.1.0] - 2026-10-27
 

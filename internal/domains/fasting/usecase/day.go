@@ -200,14 +200,36 @@ func sixShawwalStatus(
 		}
 	}
 
+	// Shawwal has 29 or 30 days, so look at the date that would be its 30th.
+	// Past the coverage, assume 29 so the count never overstates.
+	lastDay := 29
+	dayThirty, err := calendar.HijriDate(ctx, date.AddDate(0, 0, 30-hijri.Day))
+	if err != nil && !errors.Is(err, domain.ErrDateOutsideCalendar) {
+		return domain.PatternStatus{}, err
+	}
+	if err == nil && dayThirty.Month == 10 {
+		lastDay = 30
+	}
+	daysLeft := lastDay - hijri.Day + 1
+
 	status := domain.PatternStatus{
 		Key:    domain.PatternSixShawwal,
 		Name:   text(language, "Six days of Shawwal", "Enam hari puasa Syawal"),
 		Status: domain.PatternStatusInProgress,
 		Message: text(
 			language,
-			fmt.Sprintf("You recorded %d of 6 Shawwal days; fasting today makes %d.", recorded, recorded+1),
-			fmt.Sprintf("Anda mencatat %d dari 6 hari puasa Syawal; berpuasa hari ini menjadikannya %d.", recorded, recorded+1),
+			fmt.Sprintf(
+				"You recorded %d of 6 Shawwal days; fasting on this date makes %d, with %d eligible days left including this one.",
+				recorded,
+				recorded+1,
+				daysLeft,
+			),
+			fmt.Sprintf(
+				"Anda mencatat %d dari 6 hari puasa Syawal; berpuasa pada tanggal ini menjadikannya %d, dengan sisa %d hari yang dapat dipilih termasuk tanggal ini.",
+				recorded,
+				recorded+1,
+				daysLeft,
+			),
 		),
 		Evidence: "Sahih Muslim 1164a",
 		Caveat: text(
@@ -216,8 +238,9 @@ func sixShawwalStatus(
 			"Terdapat perbedaan pendapat mengenai rincian seperti pelaksanaan berturut-turut dan penggabungan niat.",
 		),
 		Progress: &domain.PatternProgress{
-			Recorded: recorded,
-			Target:   shawwalTarget,
+			Recorded:         recorded,
+			Target:           shawwalTarget,
+			EligibleDaysLeft: daysLeft,
 		},
 	}
 	if recorded >= shawwalTarget {

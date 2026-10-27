@@ -147,7 +147,7 @@ Content-Type: application/json
 
 | Key | Statuses | When |
 | --- | --- | --- |
-| `six_shawwal_candidate` | `in_progress`, `complete` | The date is 2–30 Syawal. `progress` counts your recorded Syawal days toward 6. |
+| `six_shawwal_candidate` | `in_progress`, `complete` | The date is 2–30 Syawal. `progress` counts your recorded Syawal days toward 6, and `eligible_days_left` counts the Syawal days from this date to the month's end. |
 | `dawud` | `fast_day`, `rest_day` | You set `observes_dawud`. The alternation rests the day after a recorded fast. |
 | `friday_alone` | `caution`, `paired`, `coincides` | The date is a Friday. `paired` means you fast the adjacent Thursday or Saturday; `coincides` means the Friday carries a fast you observe, such as Ayyamul Bidh or your Dawud day ([Sahih Muslim 1144b](https://sunnah.com/muslim:1144b)). |
 
