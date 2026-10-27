@@ -72,6 +72,15 @@ Returns calculations, evidence links, and caveats, including rules that cannot b
 
 Rule keys for fixed-date recommendations match the recommendation keys that schedules emit and the `types` filter accepts.
 
+### List calendars and their coverage
+
+```http
+GET /api/en/fasting/calendars
+GET /api/id/fasting/calendars
+```
+
+Returns each value `calendar` accepts, with `is_default` marking the one used when the parameter is omitted, and its full `calendar_source`: coverage, every publication, every Sidang Isbat decision, status, and caveat. Check `coverage_end` here to warn users before a request falls outside coverage and returns `422`.
+
 ### Get a schedule for a week, month, year, or range
 
 ```http

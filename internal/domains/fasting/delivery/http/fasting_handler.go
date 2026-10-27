@@ -50,6 +50,7 @@ func NewFastingHandler(usecase domain.Usecase) (*FastingHandler, error) {
 func (h *FastingHandler) Register(router fiber.Router) {
 	router.Use(requireSupportedLanguage)
 	router.Get("/rules", h.rules)
+	router.Get("/calendars", h.calendars)
 	router.Get("/schedules", h.schedule)
 	router.Get("/days/:date", h.day)
 	router.Post("/days/:date", h.dayWithHistory)
@@ -69,6 +70,28 @@ func (h *FastingHandler) Register(router fiber.Router) {
 func (h *FastingHandler) rules(c *fiber.Ctx) error {
 	c.Set(fiber.HeaderCacheControl, cacheFixedDate)
 	return c.JSON(fiber.Map{"data": h.usecase.Rules(c.UserContext(), requestLanguage(c))})
+}
+
+// calendars godoc
+// @Summary List calendars and their coverage
+// @Description Returns each selectable calendar with its full coverage, publications, Sidang Isbat decisions, status, and caveat. The default calendar answers requests that omit calendar.
+// @Tags Fasting
+// @Produce json
+// @Param language path string true "Response language" Enums(en, id)
+// @Success 200 {object} CalendarsResponse
+// @Header 200 {string} Cache-Control "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/{language}/fasting/calendars [get]
+func (h *FastingHandler) calendars(c *fiber.Ctx) error {
+	language := requestLanguage(c)
+	res, err := h.usecase.Calendars(c.UserContext(), language)
+	if err != nil {
+		return usecaseError(err, language)
+	}
+
+	// The calendar data changes only with a deploy, which purges the CDN.
+	c.Set(fiber.HeaderCacheControl, cacheFixedDate)
+	return c.JSON(fiber.Map{"data": res})
 }
 
 // schedule godoc

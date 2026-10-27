@@ -17,6 +17,15 @@ definitions:
     x-enum-varnames:
     - CalendarIndonesia
     - CalendarUmmAlQura
+  fasting.CalendarCoverage:
+    properties:
+      calendar:
+        $ref: '#/definitions/fasting.Calendar'
+      calendar_source:
+        $ref: '#/definitions/fasting.CalendarSource'
+      is_default:
+        type: boolean
+    type: object
   fasting.CalendarPublication:
     properties:
       coverage_end:
@@ -304,6 +313,13 @@ definitions:
     - VerdictRecommended
     - VerdictObligatoryPeriod
     - VerdictProhibited
+  http.CalendarsResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/fasting.CalendarCoverage'
+        type: array
+    type: object
   http.ClassificationResponse:
     properties:
       data:
@@ -348,6 +364,38 @@ info:
   title: Puasa Sunnah API
   version: "1.0"
 paths:
+  /api/{language}/fasting/calendars:
+    get:
+      description: Returns each selectable calendar with its full coverage, publications,
+        Sidang Isbat decisions, status, and caveat. The default calendar answers requests
+        that omit calendar.
+      parameters:
+      - description: Response language
+        enum:
+        - en
+        - id
+        in: path
+        name: language
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400
+              type: string
+          schema:
+            $ref: '#/definitions/http.CalendarsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: List calendars and their coverage
+      tags:
+      - Fasting
   /api/{language}/fasting/classify:
     post:
       consumes:

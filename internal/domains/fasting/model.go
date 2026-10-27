@@ -115,6 +115,14 @@ const (
 	CalendarStatusCalculated = "calculated_planning_calendar"
 )
 
+// CalendarCoverage is one selectable calendar with every publication and Isbat
+// decision across its whole coverage.
+type CalendarCoverage struct {
+	Calendar       Calendar       `json:"calendar"`
+	IsDefault      bool           `json:"is_default"`
+	CalendarSource CalendarSource `json:"calendar_source"`
+}
+
 // CalendarSource describes a calendar series. CoverageStart and CoverageEnd span
 // every supported date; Publications lists the documents behind the requested
 // range, and IsbatDecisions the Sidang Isbat decisions for months it overlaps.

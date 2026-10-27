@@ -15,6 +15,51 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/{language}/fasting/calendars": {
+            "get": {
+                "description": "Returns each selectable calendar with its full coverage, publications, Sidang Isbat decisions, status, and caveat. The default calendar answers requests that omit calendar.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Fasting"
+                ],
+                "summary": "List calendars and their coverage",
+                "parameters": [
+                    {
+                        "enum": [
+                            "en",
+                            "id"
+                        ],
+                        "type": "string",
+                        "description": "Response language",
+                        "name": "language",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.CalendarsResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/{language}/fasting/classify": {
             "post": {
                 "description": "Classifies one Gregorian date using a caller-supplied, locally accepted Hijri date. Restrictions take precedence over voluntary recommendations.",
@@ -505,6 +550,20 @@ const docTemplate = `{
                 "CalendarUmmAlQura"
             ]
         },
+        "fasting.CalendarCoverage": {
+            "type": "object",
+            "properties": {
+                "calendar": {
+                    "$ref": "#/definitions/fasting.Calendar"
+                },
+                "calendar_source": {
+                    "$ref": "#/definitions/fasting.CalendarSource"
+                },
+                "is_default": {
+                    "type": "boolean"
+                }
+            }
+        },
         "fasting.CalendarPublication": {
             "type": "object",
             "properties": {
@@ -925,6 +984,17 @@ const docTemplate = `{
                 "VerdictObligatoryPeriod",
                 "VerdictProhibited"
             ]
+        },
+        "http.CalendarsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.CalendarCoverage"
+                    }
+                }
+            }
         },
         "http.ClassificationResponse": {
             "type": "object",

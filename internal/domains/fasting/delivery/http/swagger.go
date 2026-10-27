@@ -6,6 +6,10 @@ type RulesResponse struct {
 	Data []domain.Rule `json:"data"`
 }
 
+type CalendarsResponse struct {
+	Data []domain.CalendarCoverage `json:"data"`
+}
+
 type ScheduleResponse struct {
 	Data domain.Schedule `json:"data"`
 }

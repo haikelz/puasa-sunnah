@@ -119,6 +119,39 @@ func TestAPI(t *testing.T) {
 		}
 	})
 
+	t.Run("calendars", func(t *testing.T) {
+		for _, language := range []string{"en", "id"} {
+			got := sendRequest(t, server, http.MethodGet, "/api/"+language+"/fasting/calendars", "")
+
+			var res struct {
+				Data []struct {
+					Calendar       string `json:"calendar"`
+					IsDefault      bool   `json:"is_default"`
+					CalendarSource struct {
+						CoverageEnd    string            `json:"coverage_end"`
+						Caveat         string            `json:"caveat"`
+						IsbatDecisions []json.RawMessage `json:"isbat_decisions"`
+					} `json:"calendar_source"`
+				} `json:"data"`
+			}
+			if err := json.Unmarshal([]byte(got.body), &res); err != nil {
+				t.Fatalf("GET %s calendars: %v", language, err)
+			}
+
+			isListed := got.status == http.StatusOK &&
+				len(res.Data) == 2 &&
+				res.Data[0].Calendar == "id" &&
+				res.Data[0].IsDefault &&
+				res.Data[0].CalendarSource.CoverageEnd == "2027-12-31" &&
+				strings.Contains(res.Data[0].CalendarSource.Caveat, "Sidang Isbat") &&
+				len(res.Data[0].CalendarSource.IsbatDecisions) == 3 &&
+				res.Data[1].CalendarSource.IsbatDecisions != nil
+			if !isListed {
+				t.Errorf("GET %s calendars = %d %s", language, got.status, got.body)
+			}
+		}
+	})
+
 	t.Run("cache headers", func(t *testing.T) {
 		tests := []struct {
 			path string
@@ -139,6 +172,10 @@ func TestAPI(t *testing.T) {
 			},
 			{
 				path: "/api/id/fasting/rules",
+				want: wantCacheFixedDate,
+			},
+			{
+				path: "/api/en/fasting/calendars",
 				want: wantCacheFixedDate,
 			},
 			{
@@ -539,7 +576,7 @@ func TestAPI(t *testing.T) {
 		if err := json.NewDecoder(response.Body).Decode(&specification); err != nil {
 			t.Fatal(err)
 		}
-		for _, path := range []string{"/health", "/api/{language}/fasting/rules", "/api/{language}/fasting/schedules", "/api/{language}/fasting/classify"} {
+		for _, path := range []string{"/health", "/api/{language}/fasting/rules", "/api/{language}/fasting/calendars", "/api/{language}/fasting/schedules", "/api/{language}/fasting/classify"} {
 			if _, ok := specification.Paths[path]; !ok {
 				t.Errorf("Swagger specification does not contain %s", path)
 			}

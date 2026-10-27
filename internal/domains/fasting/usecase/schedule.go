@@ -13,6 +13,9 @@ var jakarta = time.FixedZone("Asia/Jakarta", 7*60*60)
 // maxRangeDays keeps period=range as cheap as the year schedule.
 const maxRangeDays = 366
 
+// defaultCalendar answers requests that omit calendar.
+const defaultCalendar = domain.CalendarIndonesia
+
 func (u *FastingUsecase) Schedule(ctx context.Context, request domain.ScheduleRequest) (domain.Schedule, error) {
 	for _, key := range request.Types {
 		switch key {
@@ -107,7 +110,7 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request domain.ScheduleRe
 
 func (u *FastingUsecase) scheduleCalendar(calendarID domain.Calendar) (domain.Calendar, domain.CalendarRepository, error) {
 	if calendarID == "" {
-		calendarID = domain.CalendarIndonesia
+		calendarID = defaultCalendar
 	}
 
 	switch calendarID {
