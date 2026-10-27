@@ -361,6 +361,46 @@ func TestLoadKemenagCalendarRejectsInconsistentData(t *testing.T) {
 	}
 }
 
+func TestKemenagCalendarSourceListsIsbatDecisions(t *testing.T) {
+	t.Parallel()
+
+	calendar := newTestKemenagCalendar(t)
+	tests := []struct {
+		start time.Time
+		end   time.Time
+		want  []int
+	}{
+		{
+			start: date(2026, time.March, 1),
+			end:   date(2026, time.March, 31),
+			want:  []int{9, 10},
+		},
+		{
+			start: date(2026, time.May, 27),
+			end:   date(2026, time.May, 27),
+			want:  []int{12},
+		},
+		{
+			start: date(2026, time.August, 1),
+			end:   date(2026, time.August, 31),
+			want:  []int{},
+		},
+	}
+
+	for _, tt := range tests {
+		decisions := calendar.Source(tt.start, tt.end).IsbatDecisions
+
+		got := make([]int, 0, len(decisions))
+		for _, decision := range decisions {
+			got = append(got, decision.HijriMonth)
+		}
+		span := tt.start.Format(time.DateOnly) + ".." + tt.end.Format(time.DateOnly)
+		if decisions == nil || fmt.Sprint(got) != fmt.Sprint(tt.want) {
+			t.Errorf("Source(%s) Isbat months = %v, want %v", span, got, tt.want)
+		}
+	}
+}
+
 func TestLoadKemenagCalendarAppliesIsbatDecision(t *testing.T) {
 	t.Parallel()
 

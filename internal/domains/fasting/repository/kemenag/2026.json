@@ -20,5 +20,28 @@
     { "date": "2026-10-12", "hijri_year": 1448, "hijri_month": 5 },
     { "date": "2026-11-11", "hijri_year": 1448, "hijri_month": 6 },
     { "date": "2026-12-10", "hijri_year": 1448, "hijri_month": 7 }
+  ],
+  "isbat_decisions": [
+    {
+      "hijri_year": 1447,
+      "hijri_month": 9,
+      "month_start": "2026-02-19",
+      "decided_on": "2026-02-17",
+      "url": "https://diy.kemenag.go.id/news/51961-pemerintah-tetapkan-1-ramadan-1447-h-jatuh-pada-19-februari-2026.html"
+    },
+    {
+      "hijri_year": 1447,
+      "hijri_month": 10,
+      "month_start": "2026-03-21",
+      "decided_on": "2026-03-19",
+      "url": "https://diy.kemenag.go.id/news/52041-pemerintah-tetapkan-1-syawal-1447-h-bertepatan-21-maret-2026.html"
+    },
+    {
+      "hijri_year": 1447,
+      "hijri_month": 12,
+      "month_start": "2026-05-18",
+      "decided_on": "2026-05-17",
+      "url": "https://kemenag.go.id/pers-rilis/1-zulhijah-1447-h-jatuh-pada-18-mei-2026-iduladha-27-mei-2026-xARut"
+    }
   ]
 }
