@@ -7,6 +7,8 @@ its URLs, so breaking changes are listed here and in each release.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-27
+
 ### Added
 
 - An invariant test that walks every covered date of both calendars.
@@ -50,5 +52,6 @@ First tagged release. Changes are relative to the untagged deployment before it.
 - Requests rejected before routing, such as oversized bodies, no longer crash the server.
 - `types` accepts spaces after commas.
 
-[Unreleased]: https://github.com/haikelz/puasa-sunnah/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/haikelz/puasa-sunnah/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/haikelz/puasa-sunnah/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/haikelz/puasa-sunnah/releases/tag/v1.0.0
