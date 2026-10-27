@@ -7,5 +7,6 @@ type Usecase interface {
 	Schedule(context.Context, ScheduleRequest) (Schedule, error)
 	Day(context.Context, DtoDayRequest) (Day, error)
 	Calendars(context.Context, Language) ([]CalendarCoverage, error)
+	Patterns(context.Context, DtoPatternRequest) (PatternPlan, error)
 	Rules(context.Context, Language) []Rule
 }

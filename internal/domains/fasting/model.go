@@ -206,6 +206,42 @@ type PatternProgress struct {
 	EligibleDaysLeft int `json:"eligible_days_left"`
 }
 
+// DtoPatternRequest asks for personal patterns across a range: Start (default
+// today) with End or Days, as in period=range. The API evaluates History for
+// this request only and never stores it.
+type DtoPatternRequest struct {
+	Start             string
+	End               string
+	Days              *int
+	Calendar          Calendar
+	IsPilgrimAtArafah bool
+	Language          Language
+	History           DtoFastingHistory
+}
+
+// PatternPlan lists the dates in a range where a personal pattern applies. Six
+// Shawwal and Friday read only the caller's dates; Dawud days are projected
+// until Ramadan or a prohibited day interrupts them, and Notes says where.
+type PatternPlan struct {
+	Calendar       Calendar       `json:"calendar"`
+	CalendarSource CalendarSource `json:"calendar_source"`
+	StartDate      string         `json:"start_date"`
+	EndDate        string         `json:"end_date"`
+	Timezone       string         `json:"timezone"`
+	Total          int            `json:"total"`
+	Dates          []PatternDate  `json:"dates"`
+	Notes          []string       `json:"notes"`
+	Disclaimer     string         `json:"disclaimer"`
+}
+
+// PatternDate is one date with the personal patterns that apply to it.
+type PatternDate struct {
+	Date     string          `json:"date"`
+	Weekday  string          `json:"weekday"`
+	Hijri    HijriDate       `json:"hijri"`
+	Patterns []PatternStatus `json:"patterns"`
+}
+
 // CalendarPublication is one document, such as a yearly Kemenag PDF, behind a
 // calendar's dates.
 type CalendarPublication struct {

@@ -42,7 +42,7 @@ For manual classification, this API uses a transparent two-calendar input:
 2. The caller supplies the locally accepted Hijri year, month, and day. No hidden conversion is performed.
 3. Prohibited/obligatory periods are checked first.
 4. If no restriction applies, fixed-date and weekday recommendations are accumulated. One date can match several recommendations.
-5. Stateful patterns (six completed Shawwal days, alternate-day fasting, three chosen monthly days) remain the caller's responsibility.
+5. Stateful patterns need the caller's history. `POST /days/{date}` and `POST /patterns` evaluate six Shawwal days, Dawud alternation, and the Friday-alone caution from dates the caller sends; three chosen monthly days remain the caller's responsibility.
 
 Schedule generation supports two explicitly selected calendar sources:
 
@@ -103,7 +103,7 @@ GET /api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura
 - Weeks run Monday through Sunday. Month and year use Gregorian boundaries.
 - Add `is_pilgrim_at_arafah=true` for the Arafah-specific pilgrim context.
 - Responses contain only recommended opportunities; obligatory Ramadan and prohibited Eid/Tashriq dates are suppressed.
-- Shawwal dates are labeled as **eligible candidates**. Schedules never track the six days for a person; `POST /days/{date}` counts them from history the caller sends.
+- Shawwal dates are labeled as **eligible candidates**. Schedules never track the six days for a person; `POST /days/{date}` and `POST /patterns` count them from history the caller sends.
 
 Filter White Days or download them as a calendar:
 
@@ -152,6 +152,21 @@ Content-Type: application/json
 | `friday_alone` | `caution`, `paired`, `coincides` | The date is a Friday. `paired` means you fast the adjacent Thursday or Saturday; `coincides` means the Friday carries a fast you observe, such as Ayyamul Bidh or your Dawud day ([Sahih Muslim 1144b](https://sunnah.com/muslim:1144b)). |
 
 Ramadan, Eid, Tashriq, and a pilgrim at Arafah return no patterns: restrictions come first. Each pattern carries its evidence and, where scholars differ, a caveat. The API evaluates the history for that one request and never stores it; the response sends `Cache-Control: no-store`, and the history stays in the body rather than the URL so it stays out of CDN caches and access logs.
+
+### Plan personal patterns over a range
+
+```http
+POST /api/id/fasting/patterns?start=2027-01-25&end=2027-02-12
+Content-Type: application/json
+
+{ "fasting_dates": ["2027-01-24"], "observes_dawud": true }
+```
+
+Takes the same body as `POST /days/{date}` and the range parameters of `period=range`: `start` (default today) with `end` or `days`, up to 366 days, plus `calendar` and `is_pilgrim_at_arafah`. `dates` lists only the dates where a pattern applies, each with its `patterns`.
+
+- Six Syawal progress and the Friday-alone caution read only the dates you send. The plan never assumes you fasted a Syawal day you didn't record, and it doesn't pick days for you.
+- With `observes_dawud`, the Dawud fast and rest days are projected forward from your last recorded fast, as if you keep the alternation. The projection stops at the first Ramadan or prohibited day, because scholars differ on how to resume, and `notes` names that date.
+- Restricted days and a pilgrim's Arafah day carry no patterns. The response sends `Cache-Control: no-store`, and the API never stores the history.
 
 Example for August 2026:
 

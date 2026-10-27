@@ -14,6 +14,10 @@ type ScheduleResponse struct {
 	Data domain.Schedule `json:"data"`
 }
 
+type PatternPlanResponse struct {
+	Data domain.PatternPlan `json:"data"`
+}
+
 type DayResponse struct {
 	Data domain.Day `json:"data"`
 }

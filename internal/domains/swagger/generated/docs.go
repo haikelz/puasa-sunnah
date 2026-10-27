@@ -303,6 +303,119 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/{language}/fasting/patterns": {
+            "post": {
+                "description": "Evaluates the personal patterns of POST /days/{date} for every date from start (default today) through end, or for days days, up to 366. Six Shawwal progress and the Friday-alone caution read only the dates the caller sends. With observes_dawud, Dawud fast and rest days are projected from those dates and stop at the first Ramadan or prohibited day, where scholars differ on resuming; notes names that date. Only dates with a pattern are listed. Restricted days and a pilgrim at Arafah carry none. The API evaluates the body for this request only; it never stores it, and the response is not cacheable.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Fasting"
+                ],
+                "summary": "Plan personal patterns over a range",
+                "parameters": [
+                    {
+                        "enum": [
+                            "en",
+                            "id"
+                        ],
+                        "type": "string",
+                        "description": "Response language",
+                        "name": "language",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "First date in YYYY-MM-DD; defaults to today in Asia/Jakarta",
+                        "name": "start",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Last date in YYYY-MM-DD; use end or days",
+                        "name": "end",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 366,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Number of days, from 1 to 366; use end or days",
+                        "name": "days",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "umm-al-qura"
+                        ],
+                        "type": "string",
+                        "default": "id",
+                        "description": "Hijri calendar source; defaults to id",
+                        "name": "calendar",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Apply the pilgrim-at-Arafah exception",
+                        "name": "is_pilgrim_at_arafah",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Fasting dates (at most 366) and the Dawud opt-in",
+                        "name": "history",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/fasting.DtoFastingHistory"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/http.PatternPlanResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "no-store"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid body or query",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Calendar does not cover the range",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Request timed out",
+                        "schema": {
+                            "$ref": "#/definitions/http.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/{language}/fasting/rules": {
             "get": {
                 "description": "Returns recommended patterns, prohibited days, evidence links, calculations, and jurisprudential caveats.",
@@ -822,6 +935,64 @@ const docTemplate = `{
                 }
             }
         },
+        "fasting.PatternDate": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string"
+                },
+                "hijri": {
+                    "$ref": "#/definitions/fasting.HijriDate"
+                },
+                "patterns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.PatternStatus"
+                    }
+                },
+                "weekday": {
+                    "type": "string"
+                }
+            }
+        },
+        "fasting.PatternPlan": {
+            "type": "object",
+            "properties": {
+                "calendar": {
+                    "$ref": "#/definitions/fasting.Calendar"
+                },
+                "calendar_source": {
+                    "$ref": "#/definitions/fasting.CalendarSource"
+                },
+                "dates": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fasting.PatternDate"
+                    }
+                },
+                "disclaimer": {
+                    "type": "string"
+                },
+                "end_date": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "start_date": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "fasting.PatternProgress": {
             "type": "object",
             "properties": {
@@ -1033,6 +1204,14 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/http.ErrorDetail"
+                }
+            }
+        },
+        "http.PatternPlanResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/fasting.PatternPlan"
                 }
             }
         },

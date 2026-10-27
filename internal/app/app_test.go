@@ -152,6 +152,47 @@ func TestAPI(t *testing.T) {
 		}
 	})
 
+	t.Run("pattern plan", func(t *testing.T) {
+		const history = `{"fasting_dates":["2027-01-24"],"observes_dawud":true}`
+		plan := sendRequest(t, server, http.MethodPost, "/api/id/fasting/patterns?start=2027-01-25&end=2027-02-12", history)
+		isPlanned := plan.status == http.StatusOK &&
+			plan.cacheControl == cacheNoStore &&
+			strings.Contains(plan.body, `"total":14`) &&
+			strings.Contains(plan.body, "Proyeksi puasa Dawud berhenti pada 2027-02-08")
+		if !isPlanned {
+			t.Errorf("POST patterns = %d %q %s", plan.status, plan.cacheControl, plan.body)
+		}
+
+		tests := []struct {
+			path string
+			body string
+			want string
+		}{
+			{
+				path: "/api/id/fasting/patterns?start=2027-01-25",
+				body: history,
+				want: "rentang tanggal memerlukan end atau days",
+			},
+			{
+				path: "/api/en/fasting/patterns?days=7",
+				body: `{"fasting_date":[]}`,
+				want: "body must be JSON with only fasting_dates and observes_dawud",
+			},
+			{
+				path: "/api/en/fasting/patterns?days=week",
+				body: history,
+				want: "days must be an integer",
+			},
+		}
+		for _, tt := range tests {
+			got := sendRequest(t, server, http.MethodPost, tt.path, tt.body)
+
+			if got.status != http.StatusBadRequest || !strings.Contains(got.body, tt.want) {
+				t.Errorf("POST %s = %d %s, want 400 with %q", tt.path, got.status, got.body, tt.want)
+			}
+		}
+	})
+
 	t.Run("cache headers", func(t *testing.T) {
 		tests := []struct {
 			path string
@@ -576,7 +617,7 @@ func TestAPI(t *testing.T) {
 		if err := json.NewDecoder(response.Body).Decode(&specification); err != nil {
 			t.Fatal(err)
 		}
-		for _, path := range []string{"/health", "/api/{language}/fasting/rules", "/api/{language}/fasting/calendars", "/api/{language}/fasting/schedules", "/api/{language}/fasting/classify"} {
+		for _, path := range []string{"/health", "/api/{language}/fasting/rules", "/api/{language}/fasting/calendars", "/api/{language}/fasting/patterns", "/api/{language}/fasting/schedules", "/api/{language}/fasting/classify"} {
 			if _, ok := specification.Paths[path]; !ok {
 				t.Errorf("Swagger specification does not contain %s", path)
 			}

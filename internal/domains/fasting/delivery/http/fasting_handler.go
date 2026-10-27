@@ -54,6 +54,7 @@ func (h *FastingHandler) Register(router fiber.Router) {
 	router.Get("/schedules", h.schedule)
 	router.Get("/days/:date", h.day)
 	router.Post("/days/:date", h.dayWithHistory)
+	router.Post("/patterns", h.patterns)
 	router.Post("/classify", h.classify)
 }
 
@@ -136,18 +137,9 @@ func (h *FastingHandler) schedule(c *fiber.Ctx) error {
 		}
 	}
 
-	var days *int
-	if value := c.Query("days"); value != "" {
-		parsed, err := strconv.Atoi(value)
-		if err != nil {
-			return badRequest(
-				language,
-				"days must be an integer",
-				"days harus berupa bilangan bulat",
-			)
-		}
-
-		days = &parsed
+	days, err := parseDays(c.Query("days"), language)
+	if err != nil {
+		return err
 	}
 
 	reminder, err := parseReminder(c.Query("reminder"), format, language)
@@ -229,16 +221,9 @@ func (h *FastingHandler) day(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Router /api/{language}/fasting/days/{date} [post]
 func (h *FastingHandler) dayWithHistory(c *fiber.Ctx) error {
-	var req domain.DtoFastingHistory
-	decoder := json.NewDecoder(bytes.NewReader(c.Body()))
-	// A misspelled field would otherwise read as an empty history and wrong patterns.
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
-		return badRequest(
-			requestLanguage(c),
-			"body must be JSON with only fasting_dates and observes_dawud",
-			"body harus berupa JSON yang hanya berisi fasting_dates dan observes_dawud",
-		)
+	req, err := decodeHistory(c.Body(), requestLanguage(c))
+	if err != nil {
+		return err
 	}
 
 	return h.respondDay(c, &req)
@@ -275,6 +260,61 @@ func (h *FastingHandler) respondDay(c *fiber.Ctx, history *domain.DtoFastingHist
 	return c.JSON(fiber.Map{"data": res})
 }
 
+// patterns godoc
+// @Summary Plan personal patterns over a range
+// @Description Evaluates the personal patterns of POST /days/{date} for every date from start (default today) through end, or for days days, up to 366. Six Shawwal progress and the Friday-alone caution read only the dates the caller sends. With observes_dawud, Dawud fast and rest days are projected from those dates and stop at the first Ramadan or prohibited day, where scholars differ on resuming; notes names that date. Only dates with a pattern are listed. Restricted days and a pilgrim at Arafah carry none. The API evaluates the body for this request only; it never stores it, and the response is not cacheable.
+// @Tags Fasting
+// @Accept json
+// @Produce json
+// @Param language path string true "Response language" Enums(en, id)
+// @Param start query string false "First date in YYYY-MM-DD; defaults to today in Asia/Jakarta"
+// @Param end query string false "Last date in YYYY-MM-DD; use end or days"
+// @Param days query integer false "Number of days, from 1 to 366; use end or days" minimum(1) maximum(366)
+// @Param calendar query string false "Hijri calendar source; defaults to id" Enums(id, umm-al-qura) default(id)
+// @Param is_pilgrim_at_arafah query boolean false "Apply the pilgrim-at-Arafah exception" default(false)
+// @Param history body fasting.DtoFastingHistory true "Fasting dates (at most 366) and the Dawud opt-in"
+// @Success 200 {object} PatternPlanResponse
+// @Header 200 {string} Cache-Control "no-store"
+// @Failure 400 {object} ErrorResponse "Invalid body or query"
+// @Failure 422 {object} ErrorResponse "Calendar does not cover the range"
+// @Failure 503 {object} ErrorResponse "Request timed out"
+// @Failure 500 {object} ErrorResponse
+// @Router /api/{language}/fasting/patterns [post]
+func (h *FastingHandler) patterns(c *fiber.Ctx) error {
+	language := requestLanguage(c)
+
+	days, err := parseDays(c.Query("days"), language)
+	if err != nil {
+		return err
+	}
+
+	isPilgrim, err := parsePilgrim(c, language)
+	if err != nil {
+		return err
+	}
+
+	history, err := decodeHistory(c.Body(), language)
+	if err != nil {
+		return err
+	}
+
+	res, err := h.usecase.Patterns(c.UserContext(), domain.DtoPatternRequest{
+		Start:             c.Query("start"),
+		End:               c.Query("end"),
+		Days:              days,
+		Calendar:          domain.Calendar(c.Query("calendar")),
+		IsPilgrimAtArafah: isPilgrim,
+		Language:          language,
+		History:           history,
+	})
+	if err != nil {
+		return usecaseError(err, language)
+	}
+
+	c.Set(fiber.HeaderCacheControl, cachePrivate)
+	return c.JSON(fiber.Map{"data": res})
+}
+
 // classify godoc
 // @Summary Classify a fasting date
 // @Description Classifies one Gregorian date using a caller-supplied, locally accepted Hijri date. Restrictions take precedence over voluntary recommendations.
@@ -306,6 +346,41 @@ func (h *FastingHandler) classify(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"data": res})
+}
+
+// decodeHistory reads a caller's fasting history. Unknown fields fail, because a
+// misspelled field would otherwise read as an empty history and wrong patterns.
+func decodeHistory(body []byte, language domain.Language) (domain.DtoFastingHistory, error) {
+	var history domain.DtoFastingHistory
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&history); err != nil {
+		return domain.DtoFastingHistory{}, badRequest(
+			language,
+			"body must be JSON with only fasting_dates and observes_dawud",
+			"body harus berupa JSON yang hanya berisi fasting_dates dan observes_dawud",
+		)
+	}
+
+	return history, nil
+}
+
+// parseDays reads the optional days query; nil means the caller sent none.
+func parseDays(value string, language domain.Language) (*int, error) {
+	if value == "" {
+		return nil, nil
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return nil, badRequest(
+			language,
+			"days must be an integer",
+			"days harus berupa bilangan bulat",
+		)
+	}
+
+	return &parsed, nil
 }
 
 func parsePilgrim(c *fiber.Ctx, language domain.Language) (bool, error) {

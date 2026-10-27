@@ -260,7 +260,7 @@ func rulesEnglish() []domain.Rule {
 			Key:         "six_shawwal_candidate",
 			Name:        "Six days of Shawwal",
 			Kind:        "recommended",
-			Calculation: "Any six days from 2 through the end of Shawwal; POST /days/{date} counts the days a caller sends in fasting_dates.",
+			Calculation: "Any six days from 2 through the end of Shawwal; POST /days/{date} and POST /patterns count the days a caller sends in fasting_dates.",
 			Evidence:    []string{"https://sunnah.com/muslim:1164a"},
 			Caveat:      "Schools differ on details such as consecutiveness and combining intentions.",
 		},
@@ -315,7 +315,7 @@ func rulesEnglish() []domain.Rule {
 			Kind:        "recommended_pattern",
 			Calculation: "Alternate one fasting day and one non-fasting day, subject to prohibited days.",
 			Evidence:    []string{"https://sunnah.com/bukhari:1976"},
-			Caveat:      "Evaluated only by POST /days/{date} when the caller sets observes_dawud and sends recent fasting dates; the API never stores them.",
+			Caveat:      "Evaluated only by POST /days/{date} and POST /patterns when the caller sets observes_dawud and sends recent fasting dates; the API never stores them. POST /patterns stops its projection at the first Ramadan or prohibited day.",
 		},
 		{
 			Key:         "eid",
@@ -341,7 +341,7 @@ func rulesEnglish() []domain.Rule {
 				"https://sunnah.com/bukhari:1985",
 				"https://sunnah.com/muslim:1144b",
 			},
-			Caveat: "Evaluated only by POST /days/{date} from the caller's fasting dates. A fast you customarily observe is excepted; ask a qualified scholar about individual circumstances.",
+			Caveat: "Evaluated only by POST /days/{date} and POST /patterns from the caller's fasting dates. A fast you customarily observe is excepted; ask a qualified scholar about individual circumstances.",
 		},
 	}
 }

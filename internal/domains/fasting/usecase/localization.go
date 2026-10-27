@@ -72,7 +72,7 @@ func rulesIndonesian() []domain.Rule {
 			Key:         "six_shawwal_candidate",
 			Name:        "Enam hari puasa Syawal",
 			Kind:        "recommended",
-			Calculation: "Enam hari mana pun sejak 2 Syawal sampai akhir bulan; POST /days/{date} menghitung hari yang dikirim pengguna dalam fasting_dates.",
+			Calculation: "Enam hari mana pun sejak 2 Syawal sampai akhir bulan; POST /days/{date} dan POST /patterns menghitung hari yang dikirim pengguna dalam fasting_dates.",
 			Evidence:    []string{"https://sunnah.com/muslim:1164a"},
 			Caveat:      "Terdapat perbedaan pendapat mengenai rincian seperti pelaksanaan berturut-turut dan penggabungan niat.",
 		},
@@ -127,7 +127,7 @@ func rulesIndonesian() []domain.Rule {
 			Kind:        "recommended_pattern",
 			Calculation: "Berselang-seling antara satu hari berpuasa dan satu hari tidak berpuasa, dengan tetap menghindari hari yang dilarang.",
 			Evidence:    []string{"https://sunnah.com/bukhari:1976"},
-			Caveat:      "Hanya dievaluasi oleh POST /days/{date} ketika pengguna mengisi observes_dawud dan mengirim tanggal puasa terakhir; API tidak pernah menyimpannya.",
+			Caveat:      "Hanya dievaluasi oleh POST /days/{date} dan POST /patterns ketika pengguna mengisi observes_dawud dan mengirim tanggal puasa terakhir; API tidak pernah menyimpannya. POST /patterns menghentikan proyeksinya pada Ramadan atau hari terlarang pertama.",
 		},
 		{
 			Key:         "eid",
@@ -153,7 +153,7 @@ func rulesIndonesian() []domain.Rule {
 				"https://sunnah.com/bukhari:1985",
 				"https://sunnah.com/muslim:1144b",
 			},
-			Caveat: "Hanya dievaluasi oleh POST /days/{date} dari tanggal puasa yang dikirim pengguna. Puasa yang biasa Anda jalankan dikecualikan; tanyakan keadaan pribadi kepada ulama yang kompeten.",
+			Caveat: "Hanya dievaluasi oleh POST /days/{date} dan POST /patterns dari tanggal puasa yang dikirim pengguna. Puasa yang biasa Anda jalankan dikecualikan; tanyakan keadaan pribadi kepada ulama yang kompeten.",
 		},
 	}
 }

@@ -89,8 +89,8 @@ func requestErrorMessage(err *domain.RequestError, language domain.Language) str
 	case domain.CodeRangeNeedsEnd:
 		return localized(
 			language,
-			"period=range needs end or days",
-			"period=range memerlukan end atau days",
+			"a range needs end or days",
+			"rentang tanggal memerlukan end atau days",
 		)
 	case domain.CodeRangeEndBeforeStart:
 		return localized(

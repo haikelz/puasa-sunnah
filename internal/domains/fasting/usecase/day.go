@@ -73,12 +73,19 @@ func (u *FastingUsecase) Day(ctx context.Context, request domain.DtoDayRequest) 
 		return result, nil
 	}
 
+	var dawud *dawudDay
+	if history.observesDawud {
+		dawud = &dawudDay{
+			isFastDay: !history.has(date.AddDate(0, 0, -1)),
+		}
+	}
 	result.Patterns, err = personalPatterns(
 		ctx,
 		calendar,
 		date,
 		classification,
 		history,
+		dawud,
 		request.Language,
 	)
 	if err != nil {
@@ -121,13 +128,23 @@ func parseHistory(history *domain.DtoFastingHistory) (*fastingHistory, error) {
 	return parsed, nil
 }
 
+// dawudDay is the Dawud alternation on one date. A projected day follows a
+// plan's own earlier fast days, not only the dates the caller sent.
+type dawudDay struct {
+	isFastDay   bool
+	isProjected bool
+}
+
 // personalPatterns follows the /rules order: six Shawwal, Dawud, Friday alone.
+// dawud is nil when the caller does not observe the Dawud fast or a plan's
+// projection has stopped.
 func personalPatterns(
 	ctx context.Context,
 	calendar domain.CalendarRepository,
 	date time.Time,
 	classification domain.Classification,
 	history *fastingHistory,
+	dawud *dawudDay,
 	language domain.Language,
 ) ([]domain.PatternStatus, error) {
 	patterns := make([]domain.PatternStatus, 0, 3)
@@ -149,9 +166,9 @@ func personalPatterns(
 	}
 
 	isDawudFastDay := false
-	if history.observesDawud {
-		isDawudFastDay = !history.has(date.AddDate(0, 0, -1))
-		patterns = append(patterns, dawudStatus(isDawudFastDay, language))
+	if dawud != nil {
+		isDawudFastDay = dawud.isFastDay
+		patterns = append(patterns, dawudStatus(*dawud, language))
 	}
 
 	if date.Weekday() == time.Friday {
@@ -255,7 +272,7 @@ func sixShawwalStatus(
 	return status, nil
 }
 
-func dawudStatus(isFastDay bool, language domain.Language) domain.PatternStatus {
+func dawudStatus(day dawudDay, language domain.Language) domain.PatternStatus {
 	status := domain.PatternStatus{
 		Key:    domain.PatternDawud,
 		Name:   text(language, "Fast of Prophet Dawud", "Puasa Nabi Dawud"),
@@ -272,7 +289,21 @@ func dawudStatus(isFastDay bool, language domain.Language) domain.PatternStatus 
 			"Ketika Ramadan atau hari terlarang menyela pergantian ini, ulama berbeda pendapat tentang cara melanjutkannya; tanyakan kepada ulama yang kompeten.",
 		),
 	}
-	if !isFastDay {
+	switch {
+	case day.isProjected && day.isFastDay:
+		status.Message = text(
+			language,
+			"Continuing the alternation from the dates you sent, this date is a fast day.",
+			"Melanjutkan pergantian dari tanggal yang Anda kirim, tanggal ini adalah hari berpuasa.",
+		)
+	case day.isProjected:
+		status.Status = domain.PatternStatusRestDay
+		status.Message = text(
+			language,
+			"Continuing the alternation from the dates you sent, this date is a rest day.",
+			"Melanjutkan pergantian dari tanggal yang Anda kirim, tanggal ini adalah hari libur.",
+		)
+	case !day.isFastDay:
 		status.Status = domain.PatternStatusRestDay
 		status.Message = text(
 			language,

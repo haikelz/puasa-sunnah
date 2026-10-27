@@ -202,6 +202,44 @@ definitions:
       name:
         type: string
     type: object
+  fasting.PatternDate:
+    properties:
+      date:
+        type: string
+      hijri:
+        $ref: '#/definitions/fasting.HijriDate'
+      patterns:
+        items:
+          $ref: '#/definitions/fasting.PatternStatus'
+        type: array
+      weekday:
+        type: string
+    type: object
+  fasting.PatternPlan:
+    properties:
+      calendar:
+        $ref: '#/definitions/fasting.Calendar'
+      calendar_source:
+        $ref: '#/definitions/fasting.CalendarSource'
+      dates:
+        items:
+          $ref: '#/definitions/fasting.PatternDate'
+        type: array
+      disclaimer:
+        type: string
+      end_date:
+        type: string
+      notes:
+        items:
+          type: string
+        type: array
+      start_date:
+        type: string
+      timezone:
+        type: string
+      total:
+        type: integer
+    type: object
   fasting.PatternProgress:
     properties:
       eligible_days_left:
@@ -345,6 +383,11 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/http.ErrorDetail'
+    type: object
+  http.PatternPlanResponse:
+    properties:
+      data:
+        $ref: '#/definitions/fasting.PatternPlan'
     type: object
   http.RulesResponse:
     properties:
@@ -570,6 +613,90 @@ paths:
           schema:
             $ref: '#/definitions/http.ErrorResponse'
       summary: Look up one date with personal patterns
+      tags:
+      - Fasting
+  /api/{language}/fasting/patterns:
+    post:
+      consumes:
+      - application/json
+      description: Evaluates the personal patterns of POST /days/{date} for every
+        date from start (default today) through end, or for days days, up to 366.
+        Six Shawwal progress and the Friday-alone caution read only the dates the
+        caller sends. With observes_dawud, Dawud fast and rest days are projected
+        from those dates and stop at the first Ramadan or prohibited day, where scholars
+        differ on resuming; notes names that date. Only dates with a pattern are listed.
+        Restricted days and a pilgrim at Arafah carry none. The API evaluates the
+        body for this request only; it never stores it, and the response is not cacheable.
+      parameters:
+      - description: Response language
+        enum:
+        - en
+        - id
+        in: path
+        name: language
+        required: true
+        type: string
+      - description: First date in YYYY-MM-DD; defaults to today in Asia/Jakarta
+        in: query
+        name: start
+        type: string
+      - description: Last date in YYYY-MM-DD; use end or days
+        in: query
+        name: end
+        type: string
+      - description: Number of days, from 1 to 366; use end or days
+        in: query
+        maximum: 366
+        minimum: 1
+        name: days
+        type: integer
+      - default: id
+        description: Hijri calendar source; defaults to id
+        enum:
+        - id
+        - umm-al-qura
+        in: query
+        name: calendar
+        type: string
+      - default: false
+        description: Apply the pilgrim-at-Arafah exception
+        in: query
+        name: is_pilgrim_at_arafah
+        type: boolean
+      - description: Fasting dates (at most 366) and the Dawud opt-in
+        in: body
+        name: history
+        required: true
+        schema:
+          $ref: '#/definitions/fasting.DtoFastingHistory'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/http.PatternPlanResponse'
+        "400":
+          description: Invalid body or query
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "422":
+          description: Calendar does not cover the range
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "503":
+          description: Request timed out
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Plan personal patterns over a range
       tags:
       - Fasting
   /api/{language}/fasting/rules:
