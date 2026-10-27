@@ -286,6 +286,7 @@ func hasScheduleDate(dates []domain.ScheduleDate, wanted string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 

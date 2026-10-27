@@ -10,6 +10,7 @@ func text(language domain.Language, english, indonesian string) string {
 	if language == domain.LanguageIndonesian {
 		return indonesian
 	}
+
 	return english
 }
 

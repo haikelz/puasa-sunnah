@@ -62,8 +62,13 @@ func (u *FastingUsecase) Classify(_ context.Context, request domain.Classificati
 	if len(result.Restrictions) > 0 {
 		return result, nil
 	}
-	if input.hijri.Month == 12 && input.hijri.Day == 9 && input.isPilgrimAtArafah {
-		result.Notes = append(result.Notes, text(request.Language,
+
+	isPilgrimOnArafah := input.isPilgrimAtArafah &&
+		input.hijri.Month == 12 &&
+		input.hijri.Day == 9
+	if isPilgrimOnArafah {
+		result.Notes = append(result.Notes, text(
+			request.Language,
 			"A pilgrim standing at Arafah is generally not recommended to fast that day; consult Hajj guidance.",
 			"Jemaah haji yang sedang wukuf di Arafah pada umumnya tidak dianjurkan berpuasa pada hari tersebut; ikuti bimbingan ibadah haji.",
 		))
@@ -106,30 +111,51 @@ func applyRestrictions(result *domain.Classification, language domain.Language) 
 	case hijri.Month == 9:
 		result.Verdict = domain.VerdictObligatoryPeriod
 		result.Restrictions = append(result.Restrictions, domain.Occurrence{
-			Key: "ramadan", Name: "Ramadan", Evidence: "Qur'an 2:185",
+			Key:      "ramadan",
+			Name:     "Ramadan",
+			Evidence: "Qur'an 2:185",
 		})
-		result.Notes = append(result.Notes, text(language, "Ramadan fasting is obligatory for those accountable and able; it is not classified as a voluntary fast.", "Puasa Ramadan wajib bagi Muslim mukalaf yang mampu; puasa ini tidak diklasifikasikan sebagai puasa sunnah."))
+		result.Notes = append(result.Notes, text(
+			language,
+			"Ramadan fasting is obligatory for those accountable and able; it is not classified as a voluntary fast.",
+			"Puasa Ramadan wajib bagi Muslim mukalaf yang mampu; puasa ini tidak diklasifikasikan sebagai puasa sunnah.",
+		))
 	case hijri.Month == 10 && hijri.Day == 1:
 		result.Verdict = domain.VerdictProhibited
 		result.Restrictions = append(result.Restrictions, domain.Occurrence{
-			Key: "eid_al_fitr", Name: text(language, "Eid al-Fitr", "Idulfitri"), Evidence: "Sahih al-Bukhari 1990",
+			Key:      "eid_al_fitr",
+			Name:     text(language, "Eid al-Fitr", "Idulfitri"),
+			Evidence: "Sahih al-Bukhari 1990",
 		})
 	case hijri.Month == 12 && hijri.Day == 10:
 		result.Verdict = domain.VerdictProhibited
 		result.Restrictions = append(result.Restrictions, domain.Occurrence{
-			Key: "eid_al_adha", Name: text(language, "Eid al-Adha", "Iduladha"), Evidence: "Sahih al-Bukhari 1990",
+			Key:      "eid_al_adha",
+			Name:     text(language, "Eid al-Adha", "Iduladha"),
+			Evidence: "Sahih al-Bukhari 1990",
 		})
 	case hijri.Month == 12 && hijri.Day >= 11 && hijri.Day <= 13:
 		result.Verdict = domain.VerdictProhibited
 		result.Restrictions = append(result.Restrictions, domain.Occurrence{
-			Key: "days_of_tashriq", Name: text(language, "Days of Tashriq", "Hari Tasyrik"), Evidence: "Sahih Muslim 1141a",
+			Key:      "days_of_tashriq",
+			Name:     text(language, "Days of Tashriq", "Hari Tasyrik"),
+			Evidence: "Sahih Muslim 1141a",
 		})
-		result.Notes = append(result.Notes, text(language, "A narrow Hajj exception exists for a pilgrim unable to find a sacrificial animal; seek qualified guidance.", "Terdapat pengecualian terbatas bagi jemaah haji yang tidak mendapatkan hewan kurban; mintalah bimbingan ahli yang kompeten."))
+		result.Notes = append(result.Notes, text(
+			language,
+			"A narrow Hajj exception exists for a pilgrim unable to find a sacrificial animal; seek qualified guidance.",
+			"Terdapat pengecualian terbatas bagi jemaah haji yang tidak mendapatkan hewan kurban; mintalah bimbingan ahli yang kompeten.",
+		))
 	}
 }
 
-func applyRecommendations(result *domain.Classification, input parsedRequest, language domain.Language) {
-	if weekday := input.date.Weekday(); weekday == time.Monday || weekday == time.Thursday {
+func applyRecommendations(
+	result *domain.Classification,
+	input parsedRequest,
+	language domain.Language,
+) {
+	weekday := input.date.Weekday()
+	if weekday == time.Monday || weekday == time.Thursday {
 		name := text(language, "Monday fast", "Puasa Senin")
 		if weekday == time.Thursday {
 			name = text(language, "Thursday fast", "Puasa Kamis")
@@ -143,7 +169,9 @@ func applyRecommendations(result *domain.Classification, input parsedRequest, la
 
 	if input.hijri.Day >= 13 && input.hijri.Day <= 15 {
 		result.Recommendations = append(result.Recommendations, domain.Occurrence{
-			Key: "white_days", Name: text(language, "Ayyam al-Bid (White Days)", "Ayyamul Bidh (Hari-hari Putih)"), Evidence: "Sunan an-Nasa'i 2420",
+			Key:      "white_days",
+			Name:     text(language, "Ayyam al-Bid (White Days)", "Ayyamul Bidh (Hari-hari Putih)"),
+			Evidence: "Sunan an-Nasa'i 2420",
 		})
 	}
 
@@ -155,26 +183,42 @@ func applyRecommendations(result *domain.Classification, input parsedRequest, la
 			evidence = "Sahih Muslim 1162b"
 		}
 		result.Recommendations = append(result.Recommendations, domain.Occurrence{
-			Key: "ashura", Name: name, Evidence: evidence,
+			Key:      "ashura",
+			Name:     name,
+			Evidence: evidence,
 		})
 	}
 
 	if input.hijri.Month == 10 && input.hijri.Day >= 2 {
 		result.Recommendations = append(result.Recommendations, domain.Occurrence{
-			Key: "six_shawwal_candidate", Name: text(language, "Eligible day among six days of Shawwal", "Hari yang dapat dipilih untuk enam hari puasa Syawal"), Evidence: "Sahih Muslim 1164a",
+			Key: "six_shawwal_candidate",
+			Name: text(
+				language,
+				"Eligible day among six days of Shawwal",
+				"Hari yang dapat dipilih untuk enam hari puasa Syawal",
+			),
+			Evidence: "Sahih Muslim 1164a",
 		})
-		result.Notes = append(result.Notes, text(language, "The API marks eligible Shawwal dates; the caller must track which six days are observed.", "API menandai tanggal Syawal yang dapat dipilih; pengguna perlu mencatat sendiri enam hari yang telah dijalankan."))
+		result.Notes = append(result.Notes, text(
+			language,
+			"The API marks eligible Shawwal dates; the caller must track which six days are observed.",
+			"API menandai tanggal Syawal yang dapat dipilih; pengguna perlu mencatat sendiri enam hari yang telah dijalankan.",
+		))
 	}
 
 	if input.hijri.Month == 12 && input.hijri.Day >= 1 && input.hijri.Day <= 9 {
 		result.Recommendations = append(result.Recommendations, domain.Occurrence{
-			Key: "first_nine_dhul_hijjah", Name: text(language, "First nine days of Dhu al-Hijjah", "Sembilan hari pertama Zulhijah"), Evidence: "Sunan Abi Dawud 2437",
+			Key:      "first_nine_dhul_hijjah",
+			Name:     text(language, "First nine days of Dhu al-Hijjah", "Sembilan hari pertama Zulhijah"),
+			Evidence: "Sunan Abi Dawud 2437",
 		})
 	}
 
 	if input.hijri.Month == 12 && input.hijri.Day == 9 {
 		result.Recommendations = append(result.Recommendations, domain.Occurrence{
-			Key: "arafah", Name: text(language, "Day of Arafah for a non-pilgrim", "Hari Arafah bagi yang tidak berhaji"), Evidence: "Sahih Muslim 1162b",
+			Key:      "arafah",
+			Name:     text(language, "Day of Arafah for a non-pilgrim", "Hari Arafah bagi yang tidak berhaji"),
+			Evidence: "Sahih Muslim 1162b",
 		})
 	}
 }
@@ -183,6 +227,7 @@ func (u *FastingUsecase) Rules(_ context.Context, language domain.Language) []do
 	if language == domain.LanguageIndonesian {
 		return rulesIndonesian()
 	}
+
 	return rulesEnglish()
 }
 
