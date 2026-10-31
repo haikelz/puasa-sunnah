@@ -1,140 +1,91 @@
 # Puasa Sunnah API
 
-A production-grade Go/Fiber API for explaining, classifying, and scheduling voluntary fasting days in the Islamic calendar. The project uses a modular monolith with delivery, use-case, and repository boundaries while keeping Fiber isolated at the HTTP edge.
+A Go and Fiber API that classifies and schedules voluntary Islamic fasting days (_puasa sunnah_), in English and Indonesian.
 
-> **Religious scope:** this production service provides calendar-based planning information, not a fatwa. Hijri dates can differ between countries, communities, and recognized authorities. Always use the Hijri date accepted by the relevant local Islamic authority and ask qualified scholars about personal rulings.
+> **Planning information, not a fatwa.** Hijri dates differ between countries, communities, and authorities. Use the date your local Islamic authority accepts, and ask a qualified scholar about personal rulings.
 
-## What is puasa sunnah?
+## Fasts it covers
 
-`Sawm` means abstaining from the things that invalidate fasting, with intention, from true dawn (`fajr`) until sunset (`maghrib`). Ramadan fasting is obligatory for accountable Muslims who are able (Qur'an 2:183–185). _Puasa sunnah_ is voluntary fasting established or encouraged through the practice and teaching of Prophet Muhammad ﷺ. It is worship: the purpose is drawing nearer to Allah, not merely following a calendar or obtaining a health outcome.
+| Fast | When | Evidence and notes |
+| --- | --- | --- |
+| Mondays and Thursdays | Every Monday and Thursday | The Prophet fasted both days regularly ([Jamiʿ at-Tirmidhi 745](https://sunnah.com/tirmidhi:745), [Sunan Abi Dawud 2436](https://sunnah.com/abudawud:2436)), and deeds are presented on them ([Jamiʿ at-Tirmidhi 747](https://sunnah.com/tirmidhi:747)). [Sahih Muslim 1162b](https://sunnah.com/muslim:1162b) gives an additional reason for Monday. |
+| Ayyam al-Bid (White Days) | 13, 14, and 15 of each Hijri month | [Sahih al-Bukhari 1981](https://sunnah.com/bukhari:1981), [Sunan an-Nasa'i 2420](https://sunnah.com/nasai:2420). |
+| Six days of Shawwal | Any six days from 2 Shawwal | [Sahih Muslim 1164a](https://sunnah.com/muslim:1164a). 1 Shawwal is Eid. Scholars differ on consecutiveness and combining intentions. |
+| Ashura | 10 Muharram, with 9 Muharram | [Sahih Muslim 1134b](https://sunnah.com/muslim:1134b), [Sahih Muslim 1162b](https://sunnah.com/muslim:1162b). The API marks 9 and 10; scholars also mention the 11th. |
+| First nine days of Dhu al-Hijjah | 1–9 Dhu al-Hijjah | [Sunan Abi Dawud 2437](https://sunnah.com/abudawud:2437). [Sahih Muslim 1176](https://sunnah.com/muslim:1176) reports Aisha never saw him fast these days; scholars reconcile the two differently. |
+| Arafah | 9 Dhu al-Hijjah, for a non-pilgrim | [Sahih Muslim 1162b](https://sunnah.com/muslim:1162b). A pilgrim standing at Arafah is treated differently. |
+| Much of Sha'ban | A personal pattern in month 8 | [Sahih al-Bukhari 1969](https://sunnah.com/bukhari:1969). Not marked on dates, because the days near Ramadan need care. |
+| Fast of Dawud | Alternate a fast day and a rest day | [Sahih al-Bukhari 1976](https://sunnah.com/bukhari:1976). Needs your history, so only `POST /days` and `POST /patterns` evaluate it. |
 
-The main recurring forms represented by this project are:
+### Restrictions come first
 
-| Fast                              | Calendar rule                                                                                     | Core evidence / note                                                                                                                                                                                                                                             |
-| --------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mondays and Thursdays             | Gregorian weekday Monday or Thursday                                                              | The Prophet regularly fasted both days ([Jamiʿ at-Tirmidhi 745](https://sunnah.com/tirmidhi:745), [Sunan Abi Dawud 2436](https://sunnah.com/abudawud:2436)), and deeds are presented on them ([Jamiʿ at-Tirmidhi 747](https://sunnah.com/tirmidhi:747)). [Sahih Muslim 1162b](https://sunnah.com/muslim:1162b) gives an additional reason for Monday.                                                                          |
-| Three days monthly / Ayyam al-Bid | Any three days monthly; the White Days are Hijri 13, 14, 15                                       | [Sahih al-Bukhari 1981](https://sunnah.com/bukhari:1981), [Sunan an-Nasa'i 2420](https://sunnah.com/nasai:2420).                                                                                                                                                 |
-| Six days of Shawwal               | Any six days from 2 Shawwal onward                                                                | 1 Shawwal is Eid and may not be fasted. The six need tracking across requests. See [Sahih Muslim 1164a](https://sunnah.com/muslim:1164a). Scholars differ on details such as consecutiveness and combining intentions.                                           |
-| Ashura                            | 10 Muharram, preferably accompanied by 9 Muharram; scholars commonly mention 11 as an alternative | [Sahih Muslim 1134b](https://sunnah.com/muslim:1134b), [Sahih Muslim 1162b](https://sunnah.com/muslim:1162b). The classifier emits 9 and 10 because the cited primary text explicitly mentions adding the ninth; the 11th remains a documented scholarly caveat. |
-| First nine of Dhu al-Hijjah       | Hijri month 12, days 1–9                                                                          | [Sunan Abi Dawud 2437](https://sunnah.com/abudawud:2437). [Sahih Muslim 1176](https://sunnah.com/muslim:1176) reports Aisha never saw him fast these days; scholars reconcile the narrations differently. |
-| Arafah                            | 9 Dhu al-Hijjah for a non-pilgrim                                                                 | [Sahih Muslim 1162b](https://sunnah.com/muslim:1162b). A pilgrim standing at Arafah is treated differently.                                                                                                                                                      |
-| Much of Sha'ban                   | A personal pattern during month 8, not a fixed date                                               | [Sahih al-Bukhari 1969](https://sunnah.com/bukhari:1969). Details near Ramadan require care, so the classifier does not emit every Sha'ban date.                                                                                                                 |
-| Fast of Dawud                     | Alternate a fasting day and a non-fasting day                                                     | [Sahih al-Bukhari 1976](https://sunnah.com/bukhari:1976). It requires personal history and is not calculated by this stateless endpoint.                                                                                                                         |
+1. **Ramadan:** obligatory for those it applies to, so never labeled voluntary (Qur'an 2:185).
+2. **Eid al-Fitr (1 Shawwal) and Eid al-Adha (10 Dhu al-Hijjah):** fasting is prohibited ([Sahih al-Bukhari 1990](https://sunnah.com/bukhari:1990)).
+3. **Tashriq (11–13 Dhu al-Hijjah):** days of eating, drinking, and remembrance of Allah ([Sahih Muslim 1141a](https://sunnah.com/muslim:1141a)). A narrow exception exists for a pilgrim without a sacrificial animal.
+4. **Friday alone:** discouraged unless you also fast Thursday or Saturday, or the Friday carries a fast you observe ([Sahih al-Bukhari 1985](https://sunnah.com/bukhari:1985), [Sahih Muslim 1144b](https://sunnah.com/muslim:1144b)). It needs your history, so only `POST /days` and `POST /patterns` report it.
 
-### Days with higher-priority restrictions
+Make-up fasts, vows, illness, travel, pregnancy, menstruation, intention, and differences between schools are outside a date classifier. Ask a qualified scholar.
 
-The classifier applies restrictions before recommendations:
+## Calendars
 
-1. **Ramadan (month 9):** fasting is obligatory for those to whom it applies, so it is not labeled voluntary (Qur'an 2:185).
-2. **Eid al-Fitr (1 Shawwal) and Eid al-Adha (10 Dhu al-Hijjah):** fasting is prohibited; see [Sahih al-Bukhari 1990](https://sunnah.com/bukhari:1990).
-3. **Days of Tashriq (11–13 Dhu al-Hijjah):** days of eating, drinking, and remembrance of Allah; see [Sahih Muslim 1141a](https://sunnah.com/muslim:1141a). A narrow exception exists for a pilgrim unable to offer a sacrificial animal.
-4. **Friday by itself:** this depends on adjacent days and whether an independently established fast falls on Friday; see [Sahih al-Bukhari 1985](https://sunnah.com/bukhari:1985). The stateless endpoint therefore documents, but does not calculate, this personal sequence rule.
+A Hijri month starts on different days depending on the authority. In Indonesia, Kementerian Agama combines _hisab_ and _rukyat_ ([PMA 1/2026](https://kemenag.go.id/nasional/kemenag-terbitkan-pma-12026-padukan-hisab-dan-rukyat-dalam-penetapan-awal-bulan-hijriah-a94ay)). You choose the calendar with `calendar`:
 
-Other questions—making up Ramadan, vows, illness, travel, pregnancy, menstruation/postnatal bleeding, ability, intention, breaking a voluntary fast, combining intentions, or disagreement between legal schools—are deliberately outside a date classifier. Refer them to a qualified scholar.
+- **`id` (default):** the Kalender Hijriah Indonesia from Ditjen Bimas Islam, [Tahun 2026](https://aceh.kemenag.go.id/storage/berita_informasi/01K7GE96M0ZVRJ62Z520RMYG1B.pdf) and [Tahun 2027](https://aceh.kemenag.go.id/storage/berita_informasi/01M2SQD5A9T6CWP76Y8A4PKB6J.pdf) (also on [Elipski](https://simbi.kemenag.go.id/eliterasi/)). Each PDF's month starts are typed by hand into `internal/domains/fasting/repository/kemenag/<year>.json` with the PDF's SHA-256. Coverage: 28 December 2025 to 31 December 2027.
+  - Sidang Isbat decisions for Ramadan, Syawal, and Zulhijah go into the same file under `isbat_decisions`, with a link to the Kemenag announcement, and replace the PDF's planned start. The 1447 H decisions are recorded; all three matched the 2026 PDF.
+  - The service refuses to start if the files disagree, leave a gap, or hold a month that isn't 29 or 30 days long.
+- **`umm-al-qura`:** the Saudi civil planning calendar from [R.H. van Gent's data](https://webspace.science.uu.nl/~gent0113/islam/ummalqura.htm), 14 March 1937 to 16 November 2077. It is calculated, not an Indonesian religious determination.
 
-## How date calculation works
+A date outside the chosen calendar returns `422`; for `id`, the message suggests `calendar=umm-al-qura`. The API never switches calendars on its own. Every response carries `calendar_source`: publisher, coverage, status, a caveat, the PDFs behind the range, and the Isbat decisions for the months it covers. Every `id` response keeps the Isbat caveat, because some months may not have a decision yet.
 
-The Hijri calendar has 12 lunar months of 29 or 30 days. A tabular or astronomical Gregorian↔Hijri conversion is useful for planning, but an observed religious date can differ by a day because month starts are established under different accepted methods and authorities. In Indonesia, Kementerian Agama combines _hisab_ and _rukyat_ in its official process; see [PMA 1/2026](https://kemenag.go.id/nasional/kemenag-terbitkan-pma-12026-padukan-hisab-dan-rukyat-dalam-penetapan-awal-bulan-hijriah-a94ay).
-
-For manual classification, this API uses a transparent two-calendar input:
-
-1. The caller supplies an ISO Gregorian date (`YYYY-MM-DD`). Go derives its weekday, which determines Monday/Thursday.
-2. The caller supplies the locally accepted Hijri year, month, and day. No hidden conversion is performed.
-3. Prohibited/obligatory periods are checked first.
-4. If no restriction applies, fixed-date and weekday recommendations are accumulated. One date can match several recommendations.
-5. Stateful patterns need the caller's history. `POST /days/{date}` and `POST /patterns` evaluate six Shawwal days, Dawud alternation, and the Friday-alone caution from dates the caller sends; three chosen monthly days remain the caller's responsibility.
-
-Schedule generation supports two explicitly selected calendar sources:
-
-- `id` (default) uses the published Kalender Hijriah Indonesia from Ditjen Bimas Islam, Kementerian Agama RI: [Tahun 2026](https://aceh.kemenag.go.id/storage/berita_informasi/01K7GE96M0ZVRJ62Z520RMYG1B.pdf) and [Tahun 2027](https://aceh.kemenag.go.id/storage/berita_informasi/01M2SQD5A9T6CWP76Y8A4PKB6J.pdf) (also on [Elipski](https://simbi.kemenag.go.id/eliterasi/)). Their month boundaries are transcribed by hand into `internal/domains/fasting/repository/kemenag/<year>.json`, one file per PDF with its SHA-256; this is not an automatically extrapolated calculation. The service refuses to start if the files disagree on a boundary, leave a coverage gap, or contain a month that isn't 29 or 30 days long. Kemenag does not expose a documented public calendar API, so coverage is limited to the publications' visible dates, currently 28 December 2025 through 31 December 2027. Unsupported ranges return HTTP `422`, and the message names `calendar=umm-al-qura` as an alternative the caller can choose; the API never switches calendars on its own. When Kemenag's Sidang Isbat sets the start of Ramadan, Syawal, or Zulhijah, the decision goes into the same file under `isbat_decisions`, by hand, with a link to the Kemenag announcement. It replaces the PDF's planned start, and the 29- or 30-day check still applies. The 1447 H decisions for Ramadan, Syawal, and Zulhijah are recorded, and all three matched the 2026 PDF.
-- `umm-al-qura` uses the Saudi Umm al-Qura civil calendar conversion data compiled by [R.H. van Gent](https://webspace.science.uu.nl/~gent0113/islam/ummalqura.htm), covering 14 March 1937 through 16 November 2077. It is a calculated planning calendar, not an Indonesian religious determination, and can differ from dates accepted by local authorities.
-
-Every schedule response identifies the selected calendar, source, publisher, coverage, status, and relevant authority caveat. The API never silently falls back from one calendar to the other. `calendar_source.publications` lists the PDFs behind the requested range; a week that crosses New Year cites both years. `calendar_source.isbat_decisions` lists the Sidang Isbat decisions for months the range overlaps, each with the planned and decided start dates, the decision date, and the announcement link. The Isbat caveat stays on every `id` response, because other months in the range may not have a decision yet. Add later `id` years only after Kemenag publishes the corresponding official calendar and the transcribed month boundaries have tests. The weekly `.github/workflows/kemenag-calendar.yaml` job watches Elipski for the next year's calendar and opens an issue when it appears, or when fewer than 60 days of coverage remain. It never edits the data itself.
+Kemenag has no public calendar API. A weekly job (`.github/workflows/kemenag-calendar.yaml`) opens an issue when the next year's PDF appears on Elipski or when fewer than 60 days of coverage remain. A person adds the year; the job never edits data.
 
 ## API
 
-Every fasting endpoint requires a language segment. Use `/api/en` for English or `/api/id` for Indonesian. Stable machine-readable values such as keys, verdicts, periods, and status identifiers remain unchanged in both languages; names, weekdays, calculations, caveats, notes, disclaimers, and validation messages are localized.
+Every business route starts with `/api/en` or `/api/id`. Keys, verdicts, and statuses stay the same in both languages; names, notes, caveats, and error messages are translated.
 
-### Health
+- Success: `{ "data": ... }`. Error: `{ "error": { "code": 400, "message": "..." } }`. Lists are `[]`, never `null`.
+- Dates are strict `YYYY-MM-DD` in `Asia/Jakarta`. Weeks run Monday to Sunday.
+- Each response has an `X-Request-ID` header matching the log line. Requests over 5 seconds return `503`, and bodies over 16 KiB return `413`.
+- Caching: one day at the CDN (one hour in browsers) for an explicit date, five minutes for anything relative to today. Responses built from your history, errors, and `/health` are `no-store`. Each Vercel deploy clears the CDN.
 
-```http
-GET /health
-```
+| Endpoint | What it returns |
+| --- | --- |
+| `GET /health` | Service status |
+| `GET /api/{lang}/fasting/rules` | Every rule with its calculation, evidence links, and caveats |
+| `GET /api/{lang}/fasting/calendars` | Each calendar's coverage, PDFs, and Isbat decisions |
+| `GET /api/{lang}/fasting/schedules` | Recommended days for a week, month, year, or range, as JSON or ICS |
+| `GET /api/{lang}/fasting/days/{date}` | One date, restrictions included |
+| `POST /api/{lang}/fasting/days/{date}` | One date plus personal patterns from your history |
+| `POST /api/{lang}/fasting/patterns` | Personal patterns across a range |
+| `POST /api/{lang}/fasting/classify` | One date, with a Hijri date you supply |
 
-### List supported rules
+Full schemas: Swagger UI at `/swagger/index.html`, JSON at `/swagger/doc.json`.
 
-```http
-GET /api/en/fasting/rules
-GET /api/id/fasting/rules
-```
-
-Returns calculations, evidence links, and caveats, including rules that cannot be determined from one stateless request.
-
-Rule keys for fixed-date recommendations match the recommendation keys that schedules emit and the `types` filter accepts.
-
-### List calendars and their coverage
-
-```http
-GET /api/en/fasting/calendars
-GET /api/id/fasting/calendars
-```
-
-Returns each value `calendar` accepts, with `is_default` marking the one used when the parameter is omitted, and its full `calendar_source`: coverage, every publication, every Sidang Isbat decision, status, and caveat. Check `coverage_end` here to warn users before a request falls outside coverage and returns `422`.
-
-### Get a schedule for a week, month, year, or range
+### Schedules
 
 ```http
-GET /api/en/fasting/schedules?period=week&date=2026-08-09
-GET /api/en/fasting/schedules?period=month&date=2026-08-09
-GET /api/en/fasting/schedules?period=year&date=2026-08-09
-GET /api/id/fasting/schedules?period=year&date=2026-08-09&calendar=id
-GET /api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura
-```
-
-- `period` is required and must be `week`, `month`, `year`, or `range`.
-- `date` is an optional anchor in `YYYY-MM-DD` for `week`, `month`, and `year`; it defaults to today in `Asia/Jakarta`.
-- `period=range` takes `start` (defaults to today) plus either `end` or `days`, up to 366 days. `date` does not apply to a range, and `start`, `end`, and `days` apply only to a range; mixing them returns `400`.
-- `calendar` is optional and must be `id` or `umm-al-qura`; it defaults to `id`.
-- `types` optionally filters by comma-separated recommendation keys: `monday_thursday`, `white_days`, `ashura`, `six_shawwal_candidate`, `first_nine_dhul_hijjah`, or `arafah`. Matching is OR; only matching recommendations are returned, with overlapping dates deduplicated. Omitted/empty means all; unsupported keys return `400`.
-- Successful schedules and rules carry `Cache-Control` so Vercel's CDN serves repeats without running the function: one day at the CDN (one hour in browsers) for an explicit `date` or `start`, five minutes when the request is relative to today. Vercel clears the CDN cache on each deploy, so a calendar data fix reaches the CDN immediately and browsers within an hour. Errors and `/health` send `no-store`.
-- Requests that exceed the 5-second deadline return `503`. Every response carries an `X-Request-ID` header that matches the server log entry.
-- `format=json|ics` defaults to JSON. `ics` downloads an RFC 5545 calendar with one all-day event per matching date, localized titles, source URL, caveat, and disclaimer. Empty schedules export a valid calendar without events. Import it into Google Calendar, Apple Calendar, or Outlook, or subscribe to a rolling feed (below). Each feed names itself "Puasa Sunnah" and asks apps to refresh daily.
-- `reminder=HH:MM` (ICS only) adds an alarm at that time on the evening before each fast, for example `20:00` for sahur preparation. Calendar apps decide whether to honor alarms in subscribed feeds.
-- Weeks run Monday through Sunday. Month and year use Gregorian boundaries.
-- Add `is_pilgrim_at_arafah=true` for the Arafah-specific pilgrim context.
-- Responses contain only recommended opportunities; obligatory Ramadan and prohibited Eid/Tashriq dates are suppressed.
-- Shawwal dates are labeled as **eligible candidates**. Schedules never track the six days for a person; `POST /days/{date}` and `POST /patterns` count them from history the caller sends.
-
-Filter White Days or download them as a calendar:
-
-```http
-GET /api/id/fasting/schedules?period=month&date=2026-08-09&types=white_days
-GET /api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura&types=white_days,monday_thursday&format=ics
-```
-
-Filters never override Ramadan/Eid/Tashriq restrictions or calendar coverage. ICS events use stable IDs per calendar, audience, and date, with exclusive next-day end dates. Alarms appear only when you pass `reminder`.
-
-Subscribe to a feed that always covers the next 90 days. Omitting `start` keeps it rolling, so the subscription never runs out:
-
-```http
+GET /api/id/fasting/schedules?period=month&date=2026-08-09
+GET /api/en/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura&types=white_days
 GET /api/id/fasting/schedules?period=range&days=90&format=ics&reminder=20:00
-GET /api/en/fasting/schedules?period=range&start=2027-03-01&end=2027-04-30&types=six_shawwal_candidate
 ```
 
-Calendar apps subscribe over `webcal://` or by pasting the `https://` URL into "add calendar from URL".
+- `period`: `week`, `month`, or `year` around `date` (default today), or `range` with `start` (default today) plus `end` or `days`, up to 366 days.
+- `types`: comma-separated keys to keep: `monday_thursday`, `white_days`, `ashura`, `six_shawwal_candidate`, `first_nine_dhul_hijjah`, `arafah`.
+- `format=ics`: a calendar file with one all-day event per date. Omit `start` for a rolling feed that never runs out; subscribe over `webcal://` or "add calendar from URL". `reminder=HH:MM` adds an alarm on the evening before each fast.
+- `is_pilgrim_at_arafah=true`: drops the Arafah fast for a pilgrim.
 
-### Look up one date
+Schedules list only recommended days; Ramadan, Eid, and Tashriq never appear. Shawwal days are candidates; the schedule doesn't track your six.
+
+### One date
 
 ```http
 GET /api/id/fasting/days/today
 GET /api/en/fasting/days/2027-03-10?calendar=umm-al-qura
 ```
 
-Returns the full classification for one Gregorian date: verdict, recommendations, **restrictions** (Ramadan, Eid, Tashriq), notes, and the Hijri date derived from the selected calendar with its source. Schedules drop restricted dates; this endpoint keeps them, so it answers "should I fast today?". `date` is `YYYY-MM-DD` or `today` (Asia/Jakarta). It accepts `calendar` and `is_pilgrim_at_arafah` like schedules.
+Returns the verdict, recommendations, restrictions, and the Hijri date from the chosen calendar, so it answers "should I fast today?". `date` can be `today`.
 
-### Personal patterns
-
-Some sunnah patterns depend on what you fasted before. Send that history in a POST body to the same path:
+To add personal patterns, POST your history to the same path:
 
 ```http
 POST /api/en/fasting/days/2027-08-06
@@ -143,17 +94,17 @@ Content-Type: application/json
 { "fasting_dates": ["2027-08-04"], "observes_dawud": true }
 ```
 
-`fasting_dates` lists days you fasted or plan to fast (at most 366); `observes_dawud` opts into the Dawud alternation. The response adds a `patterns` array, separate from the fixed-date recommendations:
+`fasting_dates` lists days you fasted or plan to fast (at most 366). `observes_dawud` turns on the Dawud alternation. The response adds `patterns`:
 
 | Key | Statuses | When |
 | --- | --- | --- |
-| `six_shawwal_candidate` | `in_progress`, `complete` | The date is 2–30 Syawal. `progress` counts your recorded Syawal days toward 6, and `eligible_days_left` counts the Syawal days from this date to the month's end. |
+| `six_shawwal_candidate` | `in_progress`, `complete` | 2–30 Syawal. `progress` counts your Syawal days toward 6, and `eligible_days_left` counts the days left in the month. |
 | `dawud` | `fast_day`, `rest_day` | You set `observes_dawud`. The alternation rests the day after a recorded fast. |
-| `friday_alone` | `caution`, `paired`, `coincides` | The date is a Friday. `paired` means you fast the adjacent Thursday or Saturday; `coincides` means the Friday carries a fast you observe, such as Ayyamul Bidh or your Dawud day ([Sahih Muslim 1144b](https://sunnah.com/muslim:1144b)). |
+| `friday_alone` | `caution`, `paired`, `coincides` | A Friday. `paired`: you fast the Thursday or Saturday next to it. `coincides`: the Friday carries a fast you observe, such as Ayyamul Bidh or your Dawud day. |
 
-Ramadan, Eid, Tashriq, and a pilgrim at Arafah return no patterns: restrictions come first. Each pattern carries its evidence and, where scholars differ, a caveat. The API evaluates the history for that one request and never stores it; the response sends `Cache-Control: no-store`, and the history stays in the body rather than the URL so it stays out of CDN caches and access logs.
+Restricted days and a pilgrim's Arafah day carry no patterns. The API reads your history for that one request and never stores or logs it.
 
-### Plan personal patterns over a range
+### Patterns across a range
 
 ```http
 POST /api/id/fasting/patterns?start=2027-01-25&end=2027-02-12
@@ -162,63 +113,19 @@ Content-Type: application/json
 { "fasting_dates": ["2027-01-24"], "observes_dawud": true }
 ```
 
-Takes the same body as `POST /days/{date}` and the range parameters of `period=range`: `start` (default today) with `end` or `days`, up to 366 days, plus `calendar` and `is_pilgrim_at_arafah`. `dates` lists only the dates where a pattern applies, each with its `patterns`.
+Takes the same body, plus `start` with `end` or `days` (up to 366), `calendar`, and `is_pilgrim_at_arafah`. `dates` lists only the days where a pattern applies.
 
-- Six Syawal progress and the Friday-alone caution read only the dates you send. The plan never assumes you fasted a Syawal day you didn't record, and it doesn't pick days for you.
-- With `observes_dawud`, the Dawud fast and rest days are projected forward from your last recorded fast, as if you keep the alternation. The projection stops at the first Ramadan or prohibited day, because scholars differ on how to resume, and `notes` names that date.
-- Restricted days and a pilgrim's Arafah day carry no patterns. The response sends `Cache-Control: no-store`, and the API never stores the history.
+- Six Syawal and Friday read only the dates you send. The plan never assumes a Syawal fast you didn't record.
+- With `observes_dawud`, Dawud days are projected forward from your last recorded fast. The projection stops at the first Ramadan or prohibited day, where scholars differ on resuming, and `notes` names that date.
 
-Example for August 2026:
-
-```bash
-curl 'http://localhost:8080/api/en/fasting/schedules?period=month&date=2026-08-09'
-```
-
-The response includes 11 distinct dates: the month's Mondays/Thursdays and 13–15 Rabi al-Awwal. An overlap such as Thursday, 27 August carries both recommendations in one date record. The abbreviated response below omits `dates`.
-
-```json
-{
-  "data": {
-    "period": "month",
-    "anchor_date": "2026-08-09",
-    "start_date": "2026-08-01",
-    "end_date": "2026-08-31",
-    "timezone": "Asia/Jakarta",
-    "calendar": "id",
-    "calendar_source": {
-      "id": "kemenag-ri",
-      "status": "published_planning_calendar",
-      "coverage_start": "2025-12-28",
-      "coverage_end": "2027-12-31",
-      "publications": [
-        {
-          "id": "kemenag-ri-2026",
-          "name": "Kalender Hijriah Indonesia Tahun 2026",
-          "coverage_start": "2025-12-28",
-          "coverage_end": "2027-01-02"
-        }
-      ],
-      "isbat_decisions": []
-    },
-    "total": 11
-  }
-}
-```
-
-### Classify a date
+### Classify with your own Hijri date
 
 ```http
 POST /api/en/fasting/classify
 Content-Type: application/json
 
-{
-  "date": "2026-06-25",
-  "hijri": { "year": 1448, "month": 1, "day": 10 },
-  "is_pilgrim_at_arafah": false
-}
+{ "date": "2026-06-25", "hijri": { "year": 1448, "month": 1, "day": 10 } }
 ```
-
-Example response (fields abbreviated):
 
 ```json
 {
@@ -228,11 +135,7 @@ Example response (fields abbreviated):
     "hijri": { "year": 1448, "month": 1, "day": 10 },
     "verdict": "recommended",
     "recommendations": [
-      {
-        "key": "monday_thursday",
-        "name": "Thursday fast",
-        "evidence": "Jami` at-Tirmidhi 747"
-      },
+      { "key": "monday_thursday", "name": "Thursday fast", "evidence": "Jami` at-Tirmidhi 747" },
       { "key": "ashura", "name": "Ashura", "evidence": "Sahih Muslim 1162b" }
     ],
     "restrictions": [],
@@ -242,85 +145,19 @@ Example response (fields abbreviated):
 }
 ```
 
-`verdict` is one of `optional`, `recommended`, `obligatory_period`, or `prohibited`. It describes only the supplied calendar facts; it is not an individual legal ruling.
+`verdict` is `optional`, `recommended`, `obligatory_period`, or `prohibited`. It describes the calendar facts, not your personal ruling.
 
-### Swagger / OpenAPI documentation
+## Development
 
-Run the API, then open:
-
-- Interactive Swagger UI: `http://localhost:8080/swagger/index.html`
-- Swagger JSON: `http://localhost:8080/swagger/doc.json`
-
-The UI documents health, rules, classification, day lookup, personal patterns, and schedule endpoints, including request bodies, query enums, response schemas, errors, and both calendar-source caveats. “Try it out” is enabled.
-
-After changing routes, annotations, or API models, regenerate and commit all generated artifacts:
-
-```bash
-go install github.com/swaggo/swag/cmd/swag@v1.16.4
-swag init -g main.go \
-  -d cmd/api,internal/app,internal/domains/fasting \
-  -o internal/domains/swagger/generated
-```
-
-Generated files are stored in `internal/domains/swagger/generated/` as Go, JSON, and YAML. Do not edit them manually.
-
-## Architecture
-
-```text
-cmd/api (process lifecycle)
-  └── internal/app (composition root and routes)
-        └── fasting delivery/http (Fiber parsing and JSON)
-              └── fasting.Usecase interface
-                    └── fasting/usecase (rules and schedule orchestration)
-                          └── CalendarRepository
-                                ├── Kemenag Indonesia adapter (one JSON file per published year)
-                                └── Umm al-Qura adapter
-```
-
-Architecture conventions:
-
-- modules live under `internal/domains/<module>`;
-- delivery, use-case, and repository responsibilities stay separate;
-- constructors and explicit wiring are preferred over a DI framework;
-- module contracts live at the module root;
-- transport uses `context.Context` across the boundary—Fiber's `*fiber.Ctx` must not enter use cases;
-- `internal/app` owns composition and `cmd/api` owns startup/shutdown;
-- concrete persistence is added behind repository interfaces only when the domain needs it.
-
-There is no database because the rules and bundled calendar data are deterministic. Calendar adapters form a repository boundary, allowing callers to explicitly choose an authority without changing fasting rules.
-
-## Local development
-
-Requirements: Go 1.24+. For automatic rebuilds during development, install [Air](https://github.com/air-verse/air):
+Needs Go 1.26 or later. [Air](https://github.com/air-verse/air) rebuilds on save:
 
 ```bash
 go install github.com/air-verse/air@v1.65.3
+air -c .air.toml        # or: go run ./cmd/api
+curl http://localhost:8080/api/id/fasting/days/today
 ```
 
-```bash
-cp .env.example .env       # optional; .env is not auto-loaded
-export $(grep -v '^#' .env | xargs)  # if using the file
-air -c .air.toml           # watches Go files, rebuilds, and restarts
-```
-
-Air uses `.air.toml`, writes its temporary binary under ignored `tmp/air/`, excludes test files and generated/dependency directories, sends an interrupt for graceful restart, and removes temporary files when it exits. Use `go run ./cmd/api` when live reload is not needed.
-
-Then call:
-
-```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/api/en/fasting/rules
-curl http://localhost:8080/api/id/fasting/rules
-curl 'http://localhost:8080/api/en/fasting/schedules?period=week&date=2026-08-09'
-curl 'http://localhost:8080/api/id/fasting/schedules?period=month&date=2026-08-09'
-curl 'http://localhost:8080/api/en/fasting/schedules?period=year&date=2026-08-09'
-curl 'http://localhost:8080/api/id/fasting/schedules?period=year&date=2027-08-09&calendar=umm-al-qura'
-curl -X POST http://localhost:8080/api/en/fasting/classify \
-  -H 'Content-Type: application/json' \
-  -d '{"date":"2026-06-25","hijri":{"year":1448,"month":1,"day":10}}'
-```
-
-Verification:
+`.env` is not loaded automatically; export its variables yourself. Before committing:
 
 ```bash
 go test ./...
@@ -328,63 +165,48 @@ go vet ./...
 go build -o bin/api ./cmd/api
 ```
 
-## Docker
+After changing routes or API models, regenerate Swagger and commit `internal/domains/swagger/generated/` (never edit it by hand):
 
 ```bash
-cp .env.example .env
-docker network create shared-network   # once; compose expects this external network
-docker compose up --build
+go install github.com/swaggo/swag/cmd/swag@v1.16.4
+swag init -g main.go -d cmd/api,internal/app,internal/domains/fasting -o internal/domains/swagger/generated
 ```
 
-`PORT` in `.env` picks the host port. Inside the container the API always listens on 8080, and the health check calls `/health` with busybox `wget`. Pushes to `master` run `.github/workflows/build.yaml`, which tests the code and then publishes the image to GitHub Container Registry.
+The code is a modular monolith: `cmd/api` runs the process, `internal/app` wires it, and `internal/domains/fasting` holds the HTTP handlers, use cases, and the two calendar repositories. `AGENTS.md` lists the architecture and religious-accuracy rules.
 
-## Vercel deployment
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_NAME` | `puasa-sunnah-api` | Service name reported by `/health` |
+| `PORT` | `8080` | HTTP port; Vercel sets it in production |
 
-The API is deployed with [Vercel's Go runtime](https://vercel.com/docs/functions/runtimes/go). Vercel detects the root `go.mod` and `cmd/api/main.go`, builds the Fiber server, provides its runtime `PORT`, and serves the process as a Vercel Function. No Docker container or long-lived local filesystem is required.
+## Deployment
 
-```text
-Internet → Vercel CDN → Go Function → Fiber on $PORT
-```
-
-The deployment contract lives in `vercel.json`: the framework is `go`, and the build command emits the `server` binary from `./cmd/api`. The service remains stateless because Vercel may replace instances between requests. Any future durable data must live in an external durable service.
-
-Requirements: a Vercel account and Node.js for invoking the Vercel CLI. The Hobby plan can host personal, non-commercial projects within its included Function limits.
+Production runs on [Vercel's Go runtime](https://vercel.com/docs/functions/runtimes/go). `vercel.json` builds `./cmd/api`, and Vercel supplies `PORT`. The service is stateless, so any future durable data needs an external store.
 
 ```bash
 npx vercel login
-npx vercel build       # local production-build validation
-npx vercel             # preview deployment
-npx vercel --prod      # production deployment
+npx vercel build        # check the production build locally
+npx vercel              # preview
+npx vercel --prod       # production
+curl https://<your-deployment>/health
 ```
 
-After deployment, use the URL printed by Vercel to verify the public service:
+Set environment variables in the Vercel project, and never commit `.vercel/` or credentials.
+
+Docker also works. `PORT` in `.env` picks the host port; inside the container the API listens on 8080. Pushes to `master` test the code and publish an image to GitHub Container Registry.
 
 ```bash
-DEPLOYMENT_URL=https://your-project.vercel.app
-curl "$DEPLOYMENT_URL/health"
-curl "$DEPLOYMENT_URL/api/en/fasting/rules"
-curl "$DEPLOYMENT_URL/api/id/fasting/schedules?period=year&calendar=id"
+cp .env.example .env
+docker network create shared-network   # once
+docker compose up --build
 ```
 
-Swagger is available at `$DEPLOYMENT_URL/swagger/index.html`. Do not commit `.vercel/` or credentials. Configure environment variables in the Vercel project settings; `PORT` is supplied automatically.
+## Changing a religious rule
 
-## Configuration
+1. Cite the primary evidence and the recognized scholarly reading.
+2. Separate consensus, school-specific details, and implementation choices.
+3. Add precedence and boundary tests in both languages.
+4. Never present a projected Hijri date as an authoritative one.
+5. Have qualified Islamic reviewers check material changes before release.
 
-| Variable   |            Default | Purpose                                                    |
-| ---------- | -----------------: | ---------------------------------------------------------- |
-| `APP_NAME` | `puasa-sunnah-api` | Fiber service name and health metadata                     |
-| `PORT`     |             `8080` | HTTP port; Vercel supplies this automatically in production |
-
-Configuration is loaded and validated once at startup. Domain packages must not read environment variables directly.
-
-## Sources and maintenance rule
-
-The API's evidence URLs are returned by `GET /api/{language}/fasting/rules`. Primary hadith links above are used for traceability. Schedule dates come from either Kemenag's official yearly PDFs or the explicitly requested Umm al-Qura dataset; both retain their source-specific planning caveats. English and Indonesian labels summarize rules and are not substitutes for the Arabic texts or scholarly explanation.
-
-When changing a religious rule:
-
-1. document the primary evidence and recognized scholarly interpretation;
-2. distinguish consensus, school-specific details, and implementation policy;
-3. add precedence and boundary tests;
-4. never silently convert a projected Hijri date into an authoritative religious date;
-5. have qualified Islamic reviewers validate material changes before production release.
+`GET /api/{lang}/fasting/rules` returns the evidence links. The English and Indonesian labels summarize the rules; they don't replace the Arabic texts or scholarly explanation.
