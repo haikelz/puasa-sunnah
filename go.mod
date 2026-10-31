@@ -6,7 +6,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.15
 	github.com/gofiber/swagger v1.1.1
 	github.com/hablullah/go-hijri v1.0.2
-	github.com/swaggo/swag v1.16.4
+	github.com/swaggo/swag v1.16.6
 )
 
 require (
@@ -31,7 +31,9 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.51.0 // indirect
