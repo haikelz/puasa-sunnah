@@ -305,7 +305,7 @@ const docTemplate = `{
         },
         "/api/{language}/fasting/patterns": {
             "post": {
-                "description": "Evaluates the personal patterns of POST /days/{date} for every date from start (default today) through end, or for days days, up to 366. Six Shawwal progress and the Friday-alone caution read only the dates the caller sends. With observes_dawud, Dawud fast and rest days are projected from those dates and stop at the first Ramadan or prohibited day, where scholars differ on resuming; notes names that date. Only dates with a pattern are listed. Restricted days and a pilgrim at Arafah carry none. The API evaluates the body for this request only; it never stores it, and the response is not cacheable.",
+                "description": "Evaluates the personal patterns of POST /days/{date} for every date from start (default today) through end, or for days days, up to 366. Six Shawwal progress and the Friday-alone caution read only the dates the caller sends. With observes_dawud, Dawud fast and rest days are projected from those dates and stop at the first Ramadan or prohibited day, where scholars differ on resuming; notes names that date. The projection doesn't start when such a day falls between the last recorded fast and start. Only dates with a pattern are listed. Restricted days and a pilgrim at Arafah carry none. The API evaluates the body for this request only; it never stores it, and the response is not cacheable.",
                 "consumes": [
                     "application/json"
                 ],

@@ -19,6 +19,11 @@ its URLs, so breaking changes are listed here and in each release.
 - The six Syawal message on `POST /days/{date}` says "this date" instead of "today" and adds the eligible days left.
 - The `range_needs_end` error reads "a range needs end or days", since `POST /patterns` takes no `period`.
 
+### Fixed
+
+- `POST /patterns` no longer resumes the Dawud alternation across a Ramadan or prohibited day that falls between the caller's last recorded fast and `start`; a note names that day instead.
+- Projected Dawud messages say "If you keep the alternation" instead of claiming to continue from the caller's dates, which read wrong for an empty history.
+
 ## [1.1.0] - 2026-10-27
 
 ### Added

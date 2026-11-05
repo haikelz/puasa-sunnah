@@ -57,6 +57,16 @@ func (u *FastingUsecase) Patterns(
 		dates: maps.Clone(history.dates),
 	}
 	isDawudActive := history.observesDawud
+	if isDawudActive {
+		note, err := u.dawudGapNote(ctx, calendar, history, window.start, request.Language)
+		if err != nil {
+			return domain.PatternPlan{}, err
+		}
+		if note != "" {
+			isDawudActive = false
+			result.Notes = append(result.Notes, note)
+		}
+	}
 	for current := window.start; !current.After(window.end); current = current.AddDate(0, 0, 1) {
 		if err := ctx.Err(); err != nil {
 			return domain.PatternPlan{}, err
@@ -130,6 +140,67 @@ func (u *FastingUsecase) Patterns(
 
 	result.Total = len(result.Dates)
 	return result, nil
+}
+
+// dawudGapNote checks the days between the caller's last recorded fast and
+// start. A Ramadan or prohibited day there interrupted the alternation, and
+// scholars differ on how to resume, so the plan must not resume on its own. It
+// returns "" when nothing interrupts or the caller sent no fast before start.
+func (u *FastingUsecase) dawudGapNote(
+	ctx context.Context,
+	calendar domain.CalendarRepository,
+	history *fastingHistory,
+	start time.Time,
+	language domain.Language,
+) (string, error) {
+	lastFast := ""
+	for date := range history.dates {
+		if date < start.Format(time.DateOnly) && date > lastFast {
+			lastFast = date
+		}
+	}
+	if lastFast == "" {
+		return "", nil
+	}
+
+	from, err := parseDate(lastFast, "fasting_dates")
+	if err != nil {
+		return "", err
+	}
+	// Restricted days lie at most about 255 days apart (14 Dhu al-Hijjah to
+	// 1 Ramadan), so this loop stays short even for a year-old fast.
+	for current := from.AddDate(0, 0, 1); current.Before(start); current = current.AddDate(0, 0, 1) {
+		day := current.Format(time.DateOnly)
+		hijri, err := calendar.HijriDate(ctx, current)
+		if errors.Is(err, domain.ErrDateOutsideCalendar) {
+			return text(
+				language,
+				"The Dawud projection does not start: the calendar does not cover "+day+", between your last recorded fast and start, so it cannot rule out Ramadan or a prohibited day. Record a recent fast, or ask a qualified scholar.",
+				"Proyeksi puasa Dawud tidak dimulai: kalender tidak mencakup "+day+", di antara puasa terakhir yang Anda catat dan start, sehingga tidak dapat memastikan tidak ada Ramadan atau hari terlarang. Catat puasa terbaru, atau tanyakan kepada ulama yang kompeten.",
+			), nil
+		}
+		if err != nil {
+			return "", err
+		}
+
+		classification, err := u.Classify(ctx, domain.ClassificationRequest{
+			Date:     day,
+			Hijri:    hijri,
+			Language: language,
+		})
+		if err != nil {
+			return "", err
+		}
+		if len(classification.Restrictions) > 0 {
+			return text(
+				language,
+				"The Dawud projection does not start: Ramadan or a prohibited day on "+day+" came after your last recorded fast. Scholars differ on how to resume; record your first fast after it, or ask a qualified scholar.",
+				"Proyeksi puasa Dawud tidak dimulai: Ramadan atau hari terlarang pada "+day+" terjadi setelah puasa terakhir yang Anda catat. Ulama berbeda pendapat tentang cara melanjutkannya; catat puasa pertama Anda setelahnya, atau tanyakan kepada ulama yang kompeten.",
+			), nil
+		}
+	}
+
+	return "", nil
 }
 
 func dawudStopNote(language domain.Language, date string) string {

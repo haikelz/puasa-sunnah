@@ -116,7 +116,7 @@ Content-Type: application/json
 Takes the same body, plus `start` with `end` or `days` (up to 366), `calendar`, and `is_pilgrim_at_arafah`. `dates` lists only the days where a pattern applies.
 
 - Six Syawal and Friday read only the dates you send. The plan never assumes a Syawal fast you didn't record.
-- With `observes_dawud`, Dawud days are projected forward from your last recorded fast. The projection stops at the first Ramadan or prohibited day, where scholars differ on resuming, and `notes` names that date.
+- With `observes_dawud`, each date is a fast day when the day before it was not, counting your dates and the plan's own fast days. The projection stops at the first Ramadan or prohibited day, where scholars differ on resuming, and `notes` names that date. It doesn't start at all if such a day falls between your last recorded fast and `start`; record your first fast after it to plan from there.
 
 ### Classify with your own Hijri date
 

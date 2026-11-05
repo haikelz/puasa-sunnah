@@ -293,15 +293,15 @@ func dawudStatus(day dawudDay, language domain.Language) domain.PatternStatus {
 	case day.isProjected && day.isFastDay:
 		status.Message = text(
 			language,
-			"Continuing the alternation from the dates you sent, this date is a fast day.",
-			"Melanjutkan pergantian dari tanggal yang Anda kirim, tanggal ini adalah hari berpuasa.",
+			"If you keep the alternation, this date is a fast day.",
+			"Jika Anda menjaga pergantian ini, tanggal ini adalah hari berpuasa.",
 		)
 	case day.isProjected:
 		status.Status = domain.PatternStatusRestDay
 		status.Message = text(
 			language,
-			"Continuing the alternation from the dates you sent, this date is a rest day.",
-			"Melanjutkan pergantian dari tanggal yang Anda kirim, tanggal ini adalah hari libur.",
+			"If you keep the alternation, this date is a rest day.",
+			"Jika Anda menjaga pergantian ini, tanggal ini adalah hari libur.",
 		)
 	case !day.isFastDay:
 		status.Status = domain.PatternStatusRestDay

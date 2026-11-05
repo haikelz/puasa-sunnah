@@ -260,3 +260,75 @@ func TestPatternsRejectsInvalidInput(t *testing.T) {
 		t.Errorf("outside coverage: Patterns() error = %v, want ErrCalendarUnavailable", err)
 	}
 }
+
+func TestPatternsDawudGapBeforeStart(t *testing.T) {
+	t.Parallel()
+
+	service := newCalendarUsecase(t)
+	tests := []struct {
+		name      string
+		dates     []string
+		start     string
+		wantDawud bool
+		wantNote  string
+	}{
+		// Ramadan 1448 starts on 2027-02-08 and 1 Syawal is 2027-03-10.
+		{
+			name:     "Ramadan after the last fast",
+			dates:    []string{"2027-02-05"},
+			start:    "2027-03-15",
+			wantNote: "2027-02-08",
+		},
+		{
+			name:      "fast recorded after Eid",
+			dates:     []string{"2027-02-05", "2027-03-12"},
+			start:     "2027-03-15",
+			wantDawud: true,
+		},
+		{
+			name:      "no recorded fast",
+			dates:     make([]string, 0),
+			start:     "2027-03-15",
+			wantDawud: true,
+		},
+		// Kemenag coverage starts on 2025-12-28.
+		{
+			name:     "gap outside coverage",
+			dates:    []string{"2025-12-01"},
+			start:    "2026-01-05",
+			wantNote: "2025-12-02",
+		},
+	}
+
+	for _, tt := range tests {
+		for _, language := range []domain.Language{domain.LanguageEnglish, domain.LanguageIndonesian} {
+			plan, err := service.Patterns(context.Background(), domain.DtoPatternRequest{
+				Start:    tt.start,
+				Days:     new(4),
+				Language: language,
+				History: domain.DtoFastingHistory{
+					FastingDates:  tt.dates,
+					ObservesDawud: true,
+				},
+			})
+			if err != nil {
+				t.Fatalf("%s/%s: Patterns() error = %v", tt.name, language, err)
+			}
+
+			hasDawud := false
+			for _, patterns := range planByDate(plan) {
+				_, ok := patterns[domain.PatternDawud]
+				hasDawud = hasDawud || ok
+			}
+			if hasDawud != tt.wantDawud {
+				t.Errorf("%s/%s: Dawud projected = %t, want %t", tt.name, language, hasDawud, tt.wantDawud)
+			}
+
+			hasNote := tt.wantNote == "" && len(plan.Notes) == 0 ||
+				len(plan.Notes) == 1 && tt.wantNote != "" && strings.Contains(plan.Notes[0], tt.wantNote)
+			if !hasNote {
+				t.Errorf("%s/%s: notes = %q, want one naming %q", tt.name, language, plan.Notes, tt.wantNote)
+			}
+		}
+	}
+}
