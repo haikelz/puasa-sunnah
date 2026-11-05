@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	domain "puasa-sunnah/internal/domains/fasting"
@@ -93,6 +94,16 @@ func (u *FastingUsecase) Schedule(ctx context.Context, request domain.ScheduleRe
 			classification.Recommendations = filtered
 			if len(filtered) == 0 {
 				continue
+			}
+
+			// ponytail: the six Shawwal note is the only note a recommended date
+			// carries, so drop it with its recommendation. Tie notes to their
+			// recommendation if another fast ever adds one.
+			keepsShawwal := slices.ContainsFunc(filtered, func(recommendation domain.Occurrence) bool {
+				return recommendation.Key == domain.PatternSixShawwal
+			})
+			if !keepsShawwal {
+				classification.Notes = make([]string, 0)
 			}
 		}
 		result.Dates = append(result.Dates, domain.ScheduleDate{

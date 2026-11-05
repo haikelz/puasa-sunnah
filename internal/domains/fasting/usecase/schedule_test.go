@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -441,5 +442,37 @@ func TestScheduleRangeRejectsInvalidInput(t *testing.T) {
 	})
 	if !errors.Is(err, domain.ErrCalendarUnavailable) {
 		t.Errorf("range past Kemenag coverage error = %v, want ErrCalendarUnavailable", err)
+	}
+}
+
+func TestScheduleTypeFilterKeepsNotesWithTheirFast(t *testing.T) {
+	t.Parallel()
+
+	service := newCalendarUsecase(t)
+	// 2027-03-11 is a Thursday and 2 Syawal 1448, so it carries both fasts.
+	tests := map[string]int{
+		"monday_thursday":       0,
+		"six_shawwal_candidate": 1,
+	}
+
+	for key, wantNotes := range tests {
+		for _, language := range []domain.Language{domain.LanguageEnglish, domain.LanguageIndonesian} {
+			got, err := service.Schedule(context.Background(), domain.ScheduleRequest{
+				Period:   domain.SchedulePeriodMonth,
+				Date:     "2027-03-11",
+				Types:    []string{key},
+				Language: language,
+			})
+			if err != nil {
+				t.Fatalf("types=%s/%s: Schedule() error = %v", key, language, err)
+			}
+
+			index := slices.IndexFunc(got.Dates, func(date domain.ScheduleDate) bool {
+				return date.Date == "2027-03-11"
+			})
+			if index < 0 || len(got.Dates[index].Notes) != wantNotes {
+				t.Errorf("types=%s/%s: 2027-03-11 = %+v, want %d notes", key, language, got.Dates, wantNotes)
+			}
+		}
 	}
 }
