@@ -174,6 +174,19 @@ func TestDayFridayAlone(t *testing.T) {
 			},
 			wantStatus: domain.PatternStatusCoincides,
 		},
+		// Candidate days are fasts the caller may pick, so the caution stays,
+		// with a caveat naming the disagreement. 2027-03-12 is 3 Syawal 1448.
+		{
+			name:       "Shawwal candidate",
+			date:       "2027-03-12",
+			wantStatus: domain.PatternStatusCaution,
+		},
+		// 2027-05-14 is 7 Zulhijah 1448.
+		{
+			name:       "Dhu al-Hijjah candidate",
+			date:       "2027-05-14",
+			wantStatus: domain.PatternStatusCaution,
+		},
 	}
 
 	for _, tt := range tests {
@@ -193,6 +206,12 @@ func TestDayFridayAlone(t *testing.T) {
 			}
 			if tt.wantStatus == domain.PatternStatusCoincides && !strings.Contains(pattern.Caveat, "1144b") {
 				t.Errorf("%s/%s coincides caveat = %q", tt.name, language, pattern.Caveat)
+			}
+			isCandidate := strings.HasSuffix(tt.name, "candidate")
+			hasDisagreementCaveat := strings.Contains(pattern.Caveat, "Shawwal") ||
+				strings.Contains(pattern.Caveat, "Syawal")
+			if isCandidate != hasDisagreementCaveat {
+				t.Errorf("%s/%s candidate caveat = %q", tt.name, language, pattern.Caveat)
 			}
 		}
 	}

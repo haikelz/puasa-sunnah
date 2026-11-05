@@ -335,7 +335,17 @@ func fridayStatus(
 	}
 
 	customary := make([]string, 0, len(classification.Recommendations)+1)
+	hasCandidate := false
 	for _, recommendation := range classification.Recommendations {
+		// A six Shawwal or Dhu al-Hijjah candidate is a day the caller may pick,
+		// not a fast they already observe, so it keeps the caution.
+		isCandidate := recommendation.Key == domain.PatternSixShawwal ||
+			recommendation.Key == "first_nine_dhul_hijjah"
+		if isCandidate {
+			hasCandidate = true
+			continue
+		}
+
 		customary = append(customary, recommendation.Name)
 	}
 	if isDawudFastDay {
@@ -364,6 +374,12 @@ func fridayStatus(
 			language,
 			"Sahih Muslim 1144b excepts a fast you customarily observe; scholars differ on how far that reaches, so ask a qualified scholar if unsure.",
 			"Sahih Muslim 1144b mengecualikan puasa yang biasa Anda jalankan; ulama berbeda pendapat tentang cakupannya, sehingga tanyakan kepada ulama yang kompeten bila ragu.",
+		)
+	case hasCandidate:
+		status.Caveat = text(
+			language,
+			"Scholars differ on whether fasting this Friday as one of your six Shawwal days or the first nine days of Dhu al-Hijjah singles it out; ask a qualified scholar.",
+			"Ulama berbeda pendapat apakah berpuasa pada Jumat ini sebagai bagian dari enam hari Syawal atau sembilan hari pertama Zulhijah termasuk mengkhususkan hari Jumat; tanyakan kepada ulama yang kompeten.",
 		)
 	}
 

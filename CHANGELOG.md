@@ -23,6 +23,7 @@ its URLs, so breaking changes are listed here and in each release.
 
 - `POST /patterns` no longer resumes the Dawud alternation across a Ramadan or prohibited day that falls between the caller's last recorded fast and `start`; a note names that day instead.
 - Projected Dawud messages say "If you keep the alternation" instead of claiming to continue from the caller's dates, which read wrong for an empty history.
+- `friday_alone` stays `caution` on a six Shawwal or Dhu al-Hijjah candidate day, with a caveat that scholars differ, instead of reporting `coincides` for a fast the caller never recorded. Pending scholar review.
 
 ## [1.1.0] - 2026-10-27
 

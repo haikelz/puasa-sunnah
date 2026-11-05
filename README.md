@@ -100,7 +100,7 @@ Content-Type: application/json
 | --- | --- | --- |
 | `six_shawwal_candidate` | `in_progress`, `complete` | 2–30 Syawal. `progress` counts your Syawal days toward 6, and `eligible_days_left` counts the days left in the month. |
 | `dawud` | `fast_day`, `rest_day` | You set `observes_dawud`. The alternation rests the day after a recorded fast. |
-| `friday_alone` | `caution`, `paired`, `coincides` | A Friday. `paired`: you fast the Thursday or Saturday next to it. `coincides`: the Friday carries a fast you observe, such as Ayyamul Bidh or your Dawud day. |
+| `friday_alone` | `caution`, `paired`, `coincides` | A Friday. `paired`: you fast the Thursday or Saturday next to it. `coincides`: the Friday carries a fast you observe, such as Ayyamul Bidh or your Dawud day. A six Syawal or Zulhijah candidate day stays `caution`, with a caveat that scholars differ. |
 
 Restricted days and a pilgrim's Arafah day carry no patterns. The API reads your history for that one request and never stores or logs it.
 

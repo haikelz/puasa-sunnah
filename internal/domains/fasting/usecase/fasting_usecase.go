@@ -341,7 +341,7 @@ func rulesEnglish() []domain.Rule {
 				"https://sunnah.com/bukhari:1985",
 				"https://sunnah.com/muslim:1144b",
 			},
-			Caveat: "Evaluated only by POST /days/{date} and POST /patterns from the caller's fasting dates. A fast you customarily observe is excepted; ask a qualified scholar about individual circumstances.",
+			Caveat: "Evaluated only by POST /days/{date} and POST /patterns from the caller's fasting dates. A fast you customarily observe is excepted; six Shawwal and Dhu al-Hijjah candidate days are not treated as excepted, because scholars differ. Ask a qualified scholar about individual circumstances.",
 		},
 	}
 }

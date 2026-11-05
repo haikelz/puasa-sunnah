@@ -153,7 +153,7 @@ func rulesIndonesian() []domain.Rule {
 				"https://sunnah.com/bukhari:1985",
 				"https://sunnah.com/muslim:1144b",
 			},
-			Caveat: "Hanya dievaluasi oleh POST /days/{date} dan POST /patterns dari tanggal puasa yang dikirim pengguna. Puasa yang biasa Anda jalankan dikecualikan; tanyakan keadaan pribadi kepada ulama yang kompeten.",
+			Caveat: "Hanya dievaluasi oleh POST /days/{date} dan POST /patterns dari tanggal puasa yang dikirim pengguna. Puasa yang biasa Anda jalankan dikecualikan; hari yang dapat dipilih untuk enam hari Syawal dan awal Zulhijah tidak dianggap pengecualian, karena ulama berbeda pendapat. Tanyakan keadaan pribadi kepada ulama yang kompeten.",
 		},
 	}
 }
