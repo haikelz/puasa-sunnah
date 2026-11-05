@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	domain "puasa-sunnah/internal/domains/fasting"
@@ -333,8 +335,12 @@ func validateIsbatDecision(entry kemenagIsbatDecision) error {
 	if !isIsbatMonth || entry.Year < 1 {
 		return errors.New("hijri_month must be 9, 10, or 12 with a positive hijri_year")
 	}
-	if entry.URL == "" {
-		return errors.New("url is required")
+	link, err := url.Parse(entry.URL)
+	isKemenagLink := err == nil &&
+		link.Scheme == "https" &&
+		(link.Host == "kemenag.go.id" || strings.HasSuffix(link.Host, ".kemenag.go.id"))
+	if !isKemenagLink {
+		return errors.New("url must be an https link on kemenag.go.id")
 	}
 
 	start, err := time.Parse(time.DateOnly, entry.MonthStart)

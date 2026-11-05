@@ -418,7 +418,7 @@ func TestLoadKemenagCalendarAppliesIsbatDecision(t *testing.T) {
 			Month:      9,
 			MonthStart: "2026-02-20",
 			DecidedOn:  "2026-02-18",
-			URL:        "https://example.test/isbat",
+			URL:        "https://kemenag.go.id/pers-rilis/test",
 		},
 	}
 
@@ -446,7 +446,7 @@ func TestLoadKemenagCalendarAppliesIsbatDecision(t *testing.T) {
 		PlannedStart: "2026-02-19",
 		MonthStart:   "2026-02-20",
 		DecidedOn:    "2026-02-18",
-		URL:          "https://example.test/isbat",
+		URL:          "https://kemenag.go.id/pers-rilis/test",
 	}
 	lastDay := calendar.Source(date(2026, time.March, 20), date(2026, time.March, 20)).IsbatDecisions
 	if len(lastDay) != 1 || lastDay[0] != wantDecision {
@@ -469,7 +469,7 @@ func TestLoadKemenagCalendarRejectsInvalidIsbatDecisions(t *testing.T) {
 			URL:        url,
 		}
 	}
-	const url = "https://example.test/isbat"
+	const url = "https://kemenag.go.id/pers-rilis/test"
 	tests := map[string][]kemenagIsbatDecision{
 		"month without Isbat": {
 			decision(1447, 8, "2026-01-21", "2026-01-19", url),
@@ -479,6 +479,15 @@ func TestLoadKemenagCalendarRejectsInvalidIsbatDecisions(t *testing.T) {
 		},
 		"missing url": {
 			decision(1447, 9, "2026-02-19", "2026-02-17", ""),
+		},
+		"url off Kemenag": {
+			decision(1447, 9, "2026-02-19", "2026-02-17", "https://example.test/isbat"),
+		},
+		"url on a lookalike host": {
+			decision(1447, 9, "2026-02-19", "2026-02-17", "https://kemenag.go.id.example.test/isbat"),
+		},
+		"url over http": {
+			decision(1447, 9, "2026-02-19", "2026-02-17", "http://kemenag.go.id/pers-rilis/test"),
 		},
 		"unplanned month": {
 			decision(1446, 9, "2026-02-19", "2026-02-17", url),

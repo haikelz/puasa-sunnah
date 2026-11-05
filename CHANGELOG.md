@@ -25,6 +25,7 @@ its URLs, so breaking changes are listed here and in each release.
 - Projected Dawud messages say "If you keep the alternation" instead of claiming to continue from the caller's dates, which read wrong for an empty history.
 - `friday_alone` stays `caution` on a six Shawwal or Dhu al-Hijjah candidate day, with a caveat that scholars differ, instead of reporting `coincides` for a fast the caller never recorded. Pending scholar review.
 - Schedules filtered with `types` drop the six Shawwal note on dates where the filter removed that fast.
+- Isbat decisions must link to an `https` page on `kemenag.go.id`, as AGENTS.md requires.
 
 ## [1.1.0] - 2026-10-27
 
